@@ -99,14 +99,20 @@ const WORKOUTS: Record<string, WorkoutDef> = {
 };
 
 const ENCOURAGEMENTS = [
-  "Imagine the weight just insulted Joj 🐱",
+  "Imagine the weight just insulted Joj 🐱😡",
   "Shirtless Steve is rooting for you 💪",
   "Make sure to wiggle before this set 💃",
   "LIGHT WEIGHT BABY! 🏋️‍♀️",
   "Do it for the snacks waiting at home 🥨",
-  "Squeeze like you mean it! 🍑",
-  "Channel your inner gym goddess 👑",
-  "Thick thighs save lives! 🍗"
+  "Get a PB for PB! 🥜",
+  "This exercise is better than goblin squats 👺",
+  "Rep til you can carry ALL the grocery bags 🛒",
+  "Feral mode, ACTIVATE! 🐅",
+  "WINNING EVERYDAY! 🏆 I AVOID MISTAKES",
+  "WINNING EVERYDAY! 🏆 DON'T LIKE SECOND PLACE!",
+  "CARPE DIEM! (how 'bout we seize the day?) 🌞",
+  "Hopped outta bed, what I'm gonna eat?! 🍳",
+  "Accomplishing my tasks, I rinse it and repeat! 🔁"
 ];
 
 const WORKOUT_ORDER = ['A', 'B', 'C'];
