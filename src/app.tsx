@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy } from 'lucide-react';
 
 // --- Types ---
@@ -585,6 +585,17 @@ export default function BekahBuilder() {
 
   const exportData = () => JSON.stringify({ history: workoutHistory }, null, 2);
   
+const deleteWorkout = (date: Date) => {
+  const dateStr = date.toDateString();
+  const newHistory = workoutHistory.filter(session => {
+    const sessionDate = new Date(session.date);
+    return sessionDate.toDateString() !== dateStr;
+  });
+  setWorkoutHistory(newHistory);
+  setSelectedHistoryDate(null);
+  setShowDeleteConfirm(false);
+};
+
   const copyToClipboard = async () => {
       try {
         await navigator.clipboard.writeText(exportData());
