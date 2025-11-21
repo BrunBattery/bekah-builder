@@ -125,13 +125,11 @@ interface Reward {
 }
 
 const REWARDS: Reward[] = [
-  { id: 'kiss', name: 'Kiss', cost: 5, description: 'A sweet kiss from your bf 💋' },
-  { id: 'cuddle', name: 'Cuddle Session', cost: 10, description: '30 mins of cuddles 🤗' },
-  { id: 'breakfast', name: 'Breakfast in Bed', cost: 8, description: 'Your favorite breakfast made for you 🥞' },
-  { id: 'massage', name: 'Shoulder Massage', cost: 12, description: 'A relaxing shoulder massage 💆' },
-  { id: 'date', name: 'Date Night', cost: 20, description: 'A special date of your choice 🌹' },
-  { id: 'sleep-in', name: 'Sleep In', cost: 7, description: 'Sleep in without being bothered ⏰' },
-  { id: 'cheat-meal', name: 'Cheat Meal', cost: 15, description: 'Your favorite indulgence 🍕' },
+  { id: 'kiss', name: 'Kiss', cost: 1, description: 'A sweet kiss from your bf 💋' },
+  { id: 'cuddle', name: 'Cuddle Session', cost: 12, description: '30 mins of cuddles 🤗' },
+  { id: 'massage', name: 'Massage', cost: 12, description: 'A relaxing shoulder massage 💆' },
+  { id: 'serenade', name: 'Can I sing for you?', cost: 15, description: 'Musical notes - get a serenade of the song of your choice from Steve 🎶' },
+  { id: 'date', name: 'Date Night', cost: 45, description: 'A special date of your choice 🌹' },
   { id: 'movie', name: 'Movie Pick', cost: 6, description: 'You pick the movie 🎬' }
 ];
 
@@ -286,9 +284,16 @@ export default function BekahBuilder() {
         setTimerSeconds(s => s - 1);
       }, 1000);
     } else if (timerSeconds === 0 && timerActive) {
+      // Timer ran out — play sound, stop timer, and navigate as if Skip/Start was pressed
       playTimerSound();
       setTimerActive(false);
       setShowRestChoice(false);
+      // Trigger the same navigation flow as skipping the rest
+      try {
+        performNavigation();
+      } catch (e) {
+        console.error('performNavigation failed on timer end', e);
+      }
     }
     return () => clearInterval(interval);
   }, [timerActive, timerSeconds]);
@@ -720,19 +725,15 @@ const deleteWorkout = (date: Date) => {
   const purchaseReward = (reward: Reward) => {
     const points = calculateStarPoints();
     if (points >= reward.cost) {
-      // Calculate how many gold and silver to spend
-      let costRemaining = reward.cost;
-      let goldToSpend = Math.min(Math.floor(costRemaining / 3), stars.gold);
-      costRemaining -= goldToSpend * 3;
-      let silverToSpend = Math.min(costRemaining, stars.silver);
-      
-      setStars(prev => ({
-        gold: prev.gold - goldToSpend,
-        silver: prev.silver - silverToSpend
-      }));
+      // Robust approach: deduct points then re-compose into gold/silver
+      const remainingPoints = points - reward.cost;
+      const newGold = Math.floor(remainingPoints / 3);
+      const newSilver = remainingPoints - newGold * 3;
+
+      setStars({ gold: newGold, silver: newSilver });
       setPurchasedReward(reward);
       setShowRewardPurchaseScreen(true);
-      
+
       // Confetti
       const colors = ['#ffd700', '#ffed4e', '#ffc700', '#f4c430', '#ffe135'];
       const newConfetti = Array.from({ length: 80 }).map((_, i) => ({
@@ -1011,18 +1012,6 @@ const deleteWorkout = (date: Date) => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
         <style>{styles}</style>
-        {confetti.map(c => (
-          <div
-            key={c.id}
-            className="confetti"
-            style={{
-              backgroundColor: c.color,
-              left: c.left,
-              animationDuration: c.animationDuration,
-              animationDelay: c.delay
-            }}
-          />
-        ))}
         <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
           <div className="text-8xl mb-4 animate-bounce">🎉</div>
           <h1 className="text-4xl font-bold text-pink-600 mb-2">Workout Complete!</h1>
@@ -1045,7 +1034,6 @@ const deleteWorkout = (date: Date) => {
   if (screen === 'home') {
     const lastWorkout = getLastWorkout();
     const nextWorkout = getNextWorkout();
-    const starPoints = calculateStarPoints();
 
     // Check if showing hot yoga or rest day complete
     if (showHotYogaComplete) {
@@ -1121,30 +1109,7 @@ const deleteWorkout = (date: Date) => {
               </div>
             )}
 
-            {/* Star Tally */}
-            <div className="mt-4 flex gap-4 justify-center items-center">
-              <div className="bg-white rounded-lg px-3 py-2 shadow-md inline-flex items-center gap-2">
-                <span className="text-2xl">⭐</span>
-                <div className="text-left">
-                  <div className="text-xs text-gray-500">Gold</div>
-                  <div className="font-bold text-yellow-500">{stars.gold}</div>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg px-3 py-2 shadow-md inline-flex items-center gap-2">
-                <span className="text-2xl">✨</span>
-                <div className="text-left">
-                  <div className="text-xs text-gray-500">Silver</div>
-                  <div className="font-bold text-gray-400">{stars.silver}</div>
-                </div>
-              </div>
-              <div className="bg-white rounded-lg px-3 py-2 shadow-md inline-flex items-center gap-2">
-                <span className="text-xl">💎</span>
-                <div className="text-left">
-                  <div className="text-xs text-gray-500">Points</div>
-                  <div className="font-bold text-blue-500">{starPoints}</div>
-                </div>
-              </div>
-            </div>
+            {/* Removed star showcase from home - moved to Shop */}
           </div>
 
           {hasActiveSession && (
@@ -1196,10 +1161,10 @@ const deleteWorkout = (date: Date) => {
             })}
           </div>
 
-          <div className="space-y-3 mb-8">
+          <div className="grid grid-cols-2 gap-3 mb-8">
             <button
               onClick={() => setShowHotYogaDialog(true)}
-              className="w-full bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group"
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group"
             >
               <div className="flex items-center justify-between">
                 <div className="text-left">
@@ -1215,7 +1180,7 @@ const deleteWorkout = (date: Date) => {
             </button>
             <button
               onClick={addRestDay}
-              className="w-full bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group"
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group"
             >
               <div className="flex items-center justify-between">
                 <div className="text-left">
@@ -2217,8 +2182,24 @@ const deleteWorkout = (date: Date) => {
           <div className="text-center mb-6">
             <span className="text-5xl">🎁</span>
             <h2 className="text-2xl font-bold text-pink-600 mt-2">Reward Shop</h2>
-            <div className="mt-4 bg-white rounded-xl p-3 shadow-md inline-block">
-              <p className="text-sm text-gray-600">Your Points: <span className="font-bold text-blue-500 text-lg">{starPoints}</span></p>
+            <div className="mt-4 flex gap-3 justify-center items-center">
+              <div className="bg-white rounded-lg px-3 py-2 shadow-md inline-flex items-center gap-2">
+                <span className="text-2xl">⭐</span>
+                <div className="text-left">
+                  <div className="text-xs text-gray-500">Gold</div>
+                  <div className="font-bold text-yellow-500">{stars.gold}</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg px-3 py-2 shadow-md inline-flex items-center gap-2">
+                <span className="text-2xl">✨</span>
+                <div className="text-left">
+                  <div className="text-xs text-gray-500">Silver</div>
+                  <div className="font-bold text-gray-400">{stars.silver}</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-3 shadow-md inline-block">
+                <p className="text-sm text-gray-600">Your Points: <span className="font-bold text-blue-500 text-lg">{starPoints}</span></p>
+              </div>
             </div>
           </div>
 
