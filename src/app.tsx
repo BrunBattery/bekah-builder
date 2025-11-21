@@ -394,7 +394,9 @@ export default function BekahBuilder() {
 
   const getLastWorkout = () => {
     if (workoutHistory.length === 0) return null;
-    return workoutHistory[0];
+    // Return the most recent completed workout that is A/B/C (ignore rest and hotYoga)
+    const lastRelevant = workoutHistory.find(session => WORKOUT_ORDER.includes(session.workout));
+    return lastRelevant || null;
   };
 
   const getNextWorkout = () => {
