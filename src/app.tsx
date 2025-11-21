@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift } from 'lucide-react';
 
 // --- Types ---
 
@@ -34,7 +34,7 @@ interface WorkoutSession {
   exercises: SetLog[];
 }
 
-type ScreenState = 'home' | 'workout' | 'history' | 'export' | 'import' | 'trophy';
+type ScreenState = 'home' | 'workout' | 'history' | 'export' | 'import' | 'trophy' | 'shop' | 'dev';
 
 // --- Constants ---
 
@@ -43,7 +43,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
     name: 'Full Body A',
     focus: 'Squat Pattern',
     exercises: [
-      { name: 'Squats', sets: 3, repRange: '6-10', note: 'Machine/smith/barbell all fine', bodyweight: false },
+      { name: 'Squats', sets: 5, repRange: '6-10', note: 'Machine/smith/barbell all fine', bodyweight: false },
       { 
         name: 'Push-ups/DB Bench', 
         sets: 3, 
@@ -62,7 +62,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
     name: 'Full Body B',
     focus: 'Hip Hinge / Deadlift',
     exercises: [
-      { name: 'RDLs', sets: 3, repRange: '8-12', bodyweight: false },
+      { name: 'RDLs', sets: 5, repRange: '8-12', bodyweight: false },
       { 
         name: 'Lat Pulldowns/Assisted Pullups', 
         sets: 3, 
@@ -81,7 +81,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
     name: 'Full Body C',
     focus: 'Leg Press / Machine',
     exercises: [
-      { name: 'Leg Press', sets: 3, repRange: '8-12', bodyweight: false },
+      { name: 'Leg Press', sets: 5, repRange: '8-12', bodyweight: false },
       { name: 'DB OHP', sets: 3, repRange: '6-10', superset: 'Machine Row', bodyweight: false },
       { name: 'Machine Row', sets: 3, repRange: '8-12', isSuperset: true, bodyweight: false },
       { 
@@ -116,6 +116,22 @@ const ENCOURAGEMENTS = [
 ];
 
 const WORKOUT_ORDER = ['A', 'B', 'C'];
+
+interface Reward {
+  id: string;
+  name: string;
+  cost: number;
+  description: string;
+}
+
+const REWARDS: Reward[] = [
+  { id: 'kiss', name: 'Kiss', cost: 3, description: "A kiss from steve 💋" },
+  { id: 'snuggle', name: 'Snuggle Session', cost: 6, description: '30 mins of snuggles 🤗' },
+  { id: 'massage', name: 'Massage', cost: 12, description: "A relaxing massage from Steve's callused hands" },
+  { id: 'can-i-sing', name: 'Can I Sing For You?', cost: 15, description: 'Get a serenade of the song of your choice from Steve 🎶' },
+  { id: 'movie', name: 'Movie Pick', cost: 9, description: "You pick the movie tonight (wonder how far we'll make it through?)" },
+  { id: 'date', name: 'Date Night', cost: 45, description: 'A special date of your choice 🌹' }
+];
 
 // --- Styles ---
 
@@ -178,6 +194,7 @@ export default function BekahBuilder() {
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [showRestChoice, setShowRestChoice] = useState(false);
   const [suggestedRestTime, setSuggestedRestTime] = useState(120);
+  const timerEndRef = useRef<number | null>(null);
   
   // UI State
   const [encouragement, setEncouragement] = useState('');
@@ -199,6 +216,23 @@ export default function BekahBuilder() {
   // Confetti State
   const [confetti, setConfetti] = useState<{id: number, color: string, left: string, animationDuration: string, delay: string}[]>([]);
 
+  // Star System State
+  const [stars, setStars] = useState<{gold: number, silver: number}>({gold: 0, silver: 0});
+  const [purchasedReward, setPurchasedReward] = useState<Reward | null>(null);
+  const [showRewardPurchaseScreen, setShowRewardPurchaseScreen] = useState(false);
+
+  // Dev Menu State
+  const [showDevMenu, setShowDevMenu] = useState(false);
+  const [devAddGold, setDevAddGold] = useState('');
+  const [devAddSilver, setDevAddSilver] = useState('');
+
+  // Hot Yoga Dialog State
+  const [showHotYogaDialog, setShowHotYogaDialog] = useState(false);
+  const [showRestDayDialog, setShowRestDayDialog] = useState(false);
+  const [showRestDayComplete, setShowRestDayComplete] = useState(false);
+  const [showHotYogaComplete, setShowHotYogaComplete] = useState(false);
+  const [showBackupReminder, setShowBackupReminder] = useState(false);
+
   // --- Effects ---
 
   useEffect(() => {
@@ -207,6 +241,7 @@ export default function BekahBuilder() {
       try {
         const data = JSON.parse(saved);
         setWorkoutHistory(data.history || []);
+        setStars(data.stars || {gold: 0, silver: 0});
       } catch (e) {
         console.error("Failed to parse history", e);
       }
@@ -219,12 +254,13 @@ export default function BekahBuilder() {
   }, []);
 
   useEffect(() => {
-    if (workoutHistory.length > 0) {
+    if (workoutHistory.length > 0 || (stars.gold > 0 || stars.silver > 0)) {
       localStorage.setItem('bekah-builder-data', JSON.stringify({
-        history: workoutHistory
+        history: workoutHistory,
+        stars
       }));
     }
-  }, [workoutHistory]);
+  }, [workoutHistory, stars]);
 
   useEffect(() => {
     if (screen === 'workout' && selectedWorkout) {
@@ -243,18 +279,49 @@ export default function BekahBuilder() {
   }, [screen, selectedWorkout, exerciseChoices, currentExerciseIdx, currentSetIdx, sessionData, weight, reps]);
 
   useEffect(() => {
+    // Use a Date-based timer so it works correctly when tab is inactive (avoids interval throttling)
     let interval: any;
-    if (timerActive && timerSeconds > 0) {
+    if (timerActive) {
       interval = setInterval(() => {
-        setTimerSeconds(s => s - 1);
-      }, 1000);
-    } else if (timerSeconds === 0 && timerActive) {
-      playTimerSound();
-      setTimerActive(false);
-      setShowRestChoice(false);
+        if (timerEndRef.current) {
+          const remaining = Math.max(0, Math.round((timerEndRef.current - Date.now()) / 1000));
+          setTimerSeconds(remaining);
+          if (remaining <= 0) {
+            playTimerSound();
+            setTimerActive(false);
+            setShowRestChoice(false);
+            timerEndRef.current = null;
+            try { performNavigation(); } catch (e) { console.error('performNavigation failed on timer end', e); }
+          }
+        } else {
+          // fallback: decrement every tick
+          setTimerSeconds(s => {
+            if (s <= 1) {
+              playTimerSound();
+              setTimerActive(false);
+              setShowRestChoice(false);
+              try { performNavigation(); } catch (e) { console.error('performNavigation failed on timer end', e); }
+              return 0;
+            }
+            return s - 1;
+          });
+        }
+      }, 300);
     }
     return () => clearInterval(interval);
   }, [timerActive, timerSeconds]);
+
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      // Dev menu: Shift + D
+      if (e.shiftKey && e.key === 'D') {
+        setShowDevMenu(prev => !prev);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
 
   useEffect(() => {
     if (showCompletionScreen) {
@@ -270,6 +337,13 @@ export default function BekahBuilder() {
       
       localStorage.removeItem('bekah-builder-active-session');
       setHasActiveSession(false);
+
+      // Check if we should show backup reminder
+      if (shouldShowBackupReminder()) {
+        setTimeout(() => {
+          setShowBackupReminder(true);
+        }, 2000); // Show after completion screen animation
+      }
     }
   }, [showCompletionScreen]);
 
@@ -320,7 +394,9 @@ export default function BekahBuilder() {
 
   const getLastWorkout = () => {
     if (workoutHistory.length === 0) return null;
-    return workoutHistory[0];
+    // Return the most recent completed workout that is A/B/C (ignore rest and hotYoga)
+    const lastRelevant = workoutHistory.find(session => WORKOUT_ORDER.includes(session.workout));
+    return lastRelevant || null;
   };
 
   const getNextWorkout = () => {
@@ -533,6 +609,7 @@ export default function BekahBuilder() {
 
   const startRest = (seconds: number) => {
     setTimerSeconds(seconds);
+    timerEndRef.current = Date.now() + seconds * 1000;
     setTimerActive(true);
     setShowRestChoice(false);
   };
@@ -540,6 +617,7 @@ export default function BekahBuilder() {
   const handleStartSet = () => {
     setTimerActive(false);
     setTimerSeconds(0);
+    timerEndRef.current = null;
     setShowRestChoice(false);
     performNavigation();
   };
@@ -547,7 +625,24 @@ export default function BekahBuilder() {
   const skipRest = () => {
     setShowRestChoice(false);
     setTimerActive(false);
+    timerEndRef.current = null;
     performNavigation();
+  }
+
+  const toggleTimerActive = () => {
+    if (timerActive) {
+      // pause: calculate remaining and clear end
+      if (timerEndRef.current) {
+        const rem = Math.max(0, Math.round((timerEndRef.current - Date.now()) / 1000));
+        setTimerSeconds(rem);
+      }
+      setTimerActive(false);
+      timerEndRef.current = null;
+    } else {
+      // resume: set new end based on current seconds
+      timerEndRef.current = Date.now() + (timerSeconds || suggestedRestTime) * 1000;
+      setTimerActive(true);
+    }
   }
 
   const finishWorkout = (finalSessionData: SetLog[]) => {
@@ -576,6 +671,25 @@ export default function BekahBuilder() {
     }
     
     setWorkoutHistory(newHistory);
+    // Adjust stars for replacement (remove previous day's star if present, add new)
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      // treat hotYoga and regular workouts as gold
+      return { gold: 1, silver: 0 };
+    };
+
+    const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType(selectedWorkout);
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
+    
     setShowCompletionScreen(true);
   };
 
@@ -589,7 +703,7 @@ export default function BekahBuilder() {
     return null;
   };
 
-  const exportData = () => JSON.stringify({ history: workoutHistory }, null, 2);
+  const exportData = () => JSON.stringify({ history: workoutHistory, stars }, null, 2);
   
 const deleteWorkout = (date: Date) => {
   const dateStr = date.toDateString();
@@ -622,6 +736,7 @@ const deleteWorkout = (date: Date) => {
       const data = JSON.parse(importText);
       if (data.history && Array.isArray(data.history)) {
         setWorkoutHistory(data.history);
+        setStars(data.stars || {gold: 0, silver: 0});
         alert('History imported successfully!');
         setScreen('home');
         setImportText('');
@@ -650,6 +765,165 @@ const deleteWorkout = (date: Date) => {
     if (reps < min) return 'text-red-500';
     if (reps <= max) return 'text-green-600';
     return 'text-orange-500'; 
+  };
+
+  const calculateStarPoints = () => {
+    return stars.gold * 3 + stars.silver * 1;
+  };
+
+  const purchaseReward = (reward: Reward) => {
+    const points = calculateStarPoints();
+    if (points >= reward.cost) {
+      // Robust approach: deduct points then re-compose into gold/silver
+      const remainingPoints = points - reward.cost;
+      const newGold = Math.floor(remainingPoints / 3);
+      const newSilver = remainingPoints - newGold * 3;
+
+      setStars({ gold: newGold, silver: newSilver });
+      setPurchasedReward(reward);
+      setShowRewardPurchaseScreen(true);
+
+      // Confetti
+      const colors = ['#ffd700', '#ffed4e', '#ffc700', '#f4c430', '#ffe135'];
+      const newConfetti = Array.from({ length: 80 }).map((_, i) => ({
+        id: i,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        left: `${Math.random() * 100}%`,
+        animationDuration: `${Math.random() * 3 + 2}s`,
+        delay: `${Math.random() * 0.5}s`
+      }));
+      setConfetti(newConfetti);
+    } else {
+      alert(`You need ${reward.cost - points} more points!`);
+    }
+  };
+
+  const addRestDay = () => {
+    setShowRestDayDialog(true);
+  };
+
+  const confirmRestDay = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check if there's an existing workout for today
+    const existingTodayIdx = workoutHistory.findIndex(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === today.getTime();
+    });
+    
+    // Create a rest day workout entry
+    const restDaySession: WorkoutSession = {
+      workout: 'rest',
+      date: new Date().toISOString(),
+      exercises: []
+    };
+    
+    let newHistory;
+    if (existingTodayIdx !== -1) {
+      newHistory = [...workoutHistory];
+      newHistory[existingTodayIdx] = restDaySession;
+    } else {
+      newHistory = [restDaySession, ...workoutHistory];
+    }
+
+    // Adjust stars: subtract previous day's star if present, add rest day's silver star
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      return { gold: 1, silver: 0 };
+    };
+    const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType('rest');
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+
+    setWorkoutHistory(newHistory);
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
+    setShowRestDayDialog(false);
+    setShowRestDayComplete(true);
+  };
+
+  const confirmHotYoga = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Check if there's an existing workout for today
+    const existingTodayIdx = workoutHistory.findIndex(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === today.getTime();
+    });
+    
+    // Create a hot yoga workout entry
+    const hotYogaSession: WorkoutSession = {
+      workout: 'hotYoga',
+      date: new Date().toISOString(),
+      exercises: []
+    };
+    
+    let newHistory;
+    if (existingTodayIdx !== -1) {
+      newHistory = [...workoutHistory];
+      newHistory[existingTodayIdx] = hotYogaSession;
+    } else {
+      newHistory = [hotYogaSession, ...workoutHistory];
+    }
+
+    // Adjust stars: remove previous star and add hotYoga gold star
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      return { gold: 1, silver: 0 };
+    };
+    const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType('hotYoga');
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+
+    setWorkoutHistory(newHistory);
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
+    setShowHotYogaDialog(false);
+    setShowHotYogaComplete(true);
+    
+    // Flame emoji animation
+    const colors = ['#ff6b35', '#ff8c42', '#ffa630', '#ff6b35', '#ff8c42'];
+    const newConfetti = Array.from({ length: 60 }).map((_, i) => ({
+      id: i,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      left: `${Math.random() * 100}%`,
+      animationDuration: `${Math.random() * 2 + 1.5}s`,
+      delay: `${Math.random() * 0.3}s`
+    }));
+    setConfetti(newConfetti);
+  };
+
+  const devAddStars = () => {
+    if (devAddGold) setStars(prev => ({...prev, gold: prev.gold + parseInt(devAddGold)}));
+    if (devAddSilver) setStars(prev => ({...prev, silver: prev.silver + parseInt(devAddSilver)}));
+    setDevAddGold('');
+    setDevAddSilver('');
+    alert('Stars added!');
+  };
+
+  const getCompletedWorkoutDays = () => {
+    return workoutHistory.filter(session => {
+      return session.workout === 'A' || session.workout === 'B' || session.workout === 'C' || session.workout === 'hotYoga';
+    }).length;
+  };
+
+  const shouldShowBackupReminder = () => {
+    const completed = getCompletedWorkoutDays();
+    return completed > 0 && completed % 5 === 0;
   };
 
   const shouldShowWeightIncreaseTip = (currentReps: string, repRange: string) => {
@@ -817,18 +1091,6 @@ const deleteWorkout = (date: Date) => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
         <style>{styles}</style>
-        {confetti.map(c => (
-          <div
-            key={c.id}
-            className="confetti"
-            style={{
-              backgroundColor: c.color,
-              left: c.left,
-              animationDuration: c.animationDuration,
-              animationDelay: c.delay
-            }}
-          />
-        ))}
         <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
           <div className="text-8xl mb-4 animate-bounce">🎉</div>
           <h1 className="text-4xl font-bold text-pink-600 mb-2">Workout Complete!</h1>
@@ -852,8 +1114,67 @@ const deleteWorkout = (date: Date) => {
     const lastWorkout = getLastWorkout();
     const nextWorkout = getNextWorkout();
 
+    // Check if showing hot yoga or rest day complete
+    if (showHotYogaComplete) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
+          <style>{styles}</style>
+          {confetti.map(c => (
+            <div
+              key={c.id}
+              className="confetti"
+              style={{
+                backgroundColor: c.color,
+                left: c.left,
+                animationDuration: c.animationDuration,
+                animationDelay: c.delay
+              }}
+            />
+          ))}
+          <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
+            <div className="text-8xl mb-4 animate-bounce">🔥</div>
+            <h1 className="text-4xl font-bold text-orange-600 mb-2">Hot Yoga Complete!</h1>
+            <p className="text-xl text-orange-500 mb-2">You're on fire! 🌟</p>
+            <p className="text-sm text-gray-600 mb-8">Gold star added to your collection!</p>
+            
+            <button
+              onClick={() => {
+                setShowHotYogaComplete(false);
+                setConfetti([]);
+              }}
+              className="bg-orange-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-orange-600 active:scale-95 transition-all w-full"
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (showRestDayComplete) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
+          <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
+            <div className="text-8xl mb-4">😴</div>
+            <h1 className="text-4xl font-bold text-blue-600 mb-2">Rest Day Logged!</h1>
+            <p className="text-xl text-blue-500 mb-2">Recovery is important too! 💙</p>
+            <p className="text-sm text-gray-600 mb-8">Silver star added to your collection!</p>
+            
+            <button
+              onClick={() => {
+                setShowRestDayComplete(false);
+              }}
+              className="bg-blue-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-blue-600 active:scale-95 transition-all w-full"
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans pb-12">
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans pb-24">
         <div className="max-w-md mx-auto">
           <div className="text-center mb-8 pt-8">
             <h1 className="text-4xl font-bold text-pink-600 mb-2">Bekah Builder</h1>
@@ -866,6 +1187,8 @@ const deleteWorkout = (date: Date) => {
                 </p>
               </div>
             )}
+
+            {/* Removed star showcase from home - moved to Shop */}
           </div>
 
           {hasActiveSession && (
@@ -883,7 +1206,7 @@ const deleteWorkout = (date: Date) => {
            </button>
           )}
 
-          <div className="space-y-4 mb-8">
+          <div className="space-y-3 mb-8">
             {Object.keys(WORKOUTS).map(key => {
                 const isNext = nextWorkout === key;
                 return (
@@ -917,34 +1240,267 @@ const deleteWorkout = (date: Date) => {
             })}
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-2 gap-3 mb-8">
+            <button
+              onClick={() => setShowHotYogaDialog(true)}
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  <h3 className="text-lg font-bold text-orange-600 group-hover:text-orange-700 transition-colors flex items-center gap-2">
+                    🔥 Hot Yoga
+                  </h3>
+                  <p className="text-sm text-gray-500">Log a hot yoga session</p>
+                </div>
+                <div className="bg-orange-50 p-2 rounded-lg group-hover:bg-orange-100 transition-colors">
+                  <span className="text-2xl">🔥</span>
+                </div>
+              </div>
+            </button>
+            <button
+              onClick={addRestDay}
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  <h3 className="text-lg font-bold text-blue-600 group-hover:text-blue-700 transition-colors flex items-center gap-2">
+                    😴 Rest Day
+                  </h3>
+                  <p className="text-sm text-gray-500">Log a rest day</p>
+                </div>
+                <div className="bg-blue-50 p-2 rounded-lg group-hover:bg-blue-100 transition-colors">
+                  <span className="text-2xl">😴</span>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2 mb-8">
             <button
               onClick={() => setScreen('history')}
-              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-2"
+              className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1"
             >
-              <Calendar className="text-pink-400" size={24} />
+              <Calendar className="text-pink-400" size={20} />
               <p className="text-xs font-semibold text-gray-700">History</p>
             </button>
              <button
               onClick={() => setScreen('trophy')}
-              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-2"
+              className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1"
             >
-              <Trophy className="text-yellow-400" size={24} />
+              <Trophy className="text-yellow-400" size={20} />
               <p className="text-xs font-semibold text-gray-700">Records</p>
             </button>
             <button
-              onClick={() => setScreen('export')}
-              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-2"
+              onClick={() => setScreen('shop')}
+              className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1"
             >
-              <Save className="text-blue-400" size={24} />
+              <Gift className="text-purple-400" size={20} />
+              <p className="text-xs font-semibold text-gray-700">Shop</p>
+            </button>
+            <button
+              onClick={() => setScreen('export')}
+              className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1"
+            >
+              <Save className="text-blue-400" size={20} />
               <p className="text-xs font-semibold text-gray-700">Data</p>
             </button>
           </div>
           
-          <div className="text-center">
-            <p className="text-xs text-pink-300 font-medium">Copyright Steve from the CRA, 2025</p>
+          <div className="text-center text-xs text-pink-300 font-medium mt-8">
+            <p>Copyright Steve from the CRA, 2025</p>
           </div>
         </div>
+
+        {/* Hot Yoga Dialog */}
+        {showHotYogaDialog && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
+              <div className="text-6xl mb-4 animate-bounce">🔥</div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">Hot Yoga</h3>
+              <p className="text-gray-600 mb-2">Did you complete your hot yoga workout today?</p>
+              <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowHotYogaDialog(false)}
+                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmHotYoga}
+                  className="flex-1 bg-orange-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-600"
+                >
+                  Yes! 🔥
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Dev Menu */}
+        {showDevMenu && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Dev Menu (Shift+D)</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 block mb-1">Add Gold Stars</label>
+                  <input
+                    type="number"
+                    value={devAddGold}
+                    onChange={(e) => setDevAddGold(e.target.value)}
+                    className="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-pink-400 outline-none"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-gray-700 block mb-1">Add Silver Stars</label>
+                  <input
+                    type="number"
+                    value={devAddSilver}
+                    onChange={(e) => setDevAddSilver(e.target.value)}
+                    className="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-pink-400 outline-none"
+                    placeholder="0"
+                  />
+                </div>
+                <button
+                  onClick={() => {
+                    setShowBackupReminder(true);
+                    setShowDevMenu(false);
+                  }}
+                  className="w-full bg-blue-100 text-blue-700 rounded-lg p-2 text-sm font-semibold active:scale-95 transition-all"
+                >
+                  Show Backup Reminder
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowDevMenu(false)}
+                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={devAddStars}
+                    className="flex-1 bg-purple-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-purple-600"
+                  >
+                    Add Stars
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rest Day Confirmation Dialog */}
+        {showRestDayDialog && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
+              <div className="text-6xl mb-4">😴</div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">Rest Day</h3>
+              <p className="text-gray-600 mb-2">Log a rest day for today?</p>
+              <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRestDayDialog(false)}
+                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmRestDay}
+                  className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
+                >
+                  Yes! 😴
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hot Yoga Complete Screen */}
+        {showHotYogaComplete && (
+          <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
+            <style>{styles}</style>
+            {confetti.map(c => (
+              <div
+                key={c.id}
+                className="confetti"
+                style={{
+                  backgroundColor: c.color,
+                  left: c.left,
+                  animationDuration: c.animationDuration,
+                  animationDelay: c.delay
+                }}
+              />
+            ))}
+            <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
+              <div className="text-8xl mb-4 animate-bounce">🔥</div>
+              <h1 className="text-4xl font-bold text-orange-600 mb-2">Hot Yoga Complete!</h1>
+              <p className="text-xl text-orange-500 mb-2">You're on fire! 🌟</p>
+              <p className="text-sm text-gray-600 mb-8">Gold star added to your collection!</p>
+              
+              <button
+                onClick={() => {
+                  setShowHotYogaComplete(false);
+                  setConfetti([]);
+                  setScreen('home');
+                }}
+                className="bg-orange-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-orange-600 active:scale-95 transition-all w-full"
+              >
+                Back to Home
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Rest Day Complete Screen */}
+        {showRestDayComplete && (
+          <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
+            <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
+              <div className="text-8xl mb-4">😴</div>
+              <h1 className="text-4xl font-bold text-blue-600 mb-2">Rest Day Logged!</h1>
+              <p className="text-xl text-blue-500 mb-2">Recovery is important too! 💙</p>
+              <p className="text-sm text-gray-600 mb-8">Silver star added to your collection!</p>
+              
+              <button
+                onClick={() => {
+                  setShowRestDayComplete(false);
+                  setScreen('home');
+                }}
+                className="bg-blue-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-blue-600 active:scale-95 transition-all w-full"
+              >
+                Back to Home
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Backup Reminder Dialog */}
+        {showBackupReminder && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl">
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">Great Progress! 🎉</h3>
+              <p className="text-gray-600 mb-6">You've completed {getCompletedWorkoutDays()} workouts! Would you like to back up your data to keep it safe?</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBackupReminder(false)}
+                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                >
+                  Later
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBackupReminder(false);
+                    setScreen('export');
+                  }}
+                  className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
+                >
+                  Back Up Now
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1054,7 +1610,7 @@ const deleteWorkout = (date: Date) => {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setTimerActive(!timerActive)}
+                  onClick={toggleTimerActive}
                   className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
                 >
                   {timerActive ? 'Pause' : 'Resume'}
@@ -1469,21 +2025,29 @@ const deleteWorkout = (date: Date) => {
                 const isSelected = selectedHistoryDate && date.toDateString() === selectedHistoryDate.toDateString();
                 const isBirthday = date.getDate() === 17 && date.getMonth() === 11; // Dec 17
                 
+                const dayClass = workout
+                  ? (workout.workout === 'rest'
+                      ? (isSelected ? 'bg-blue-600 text-white shadow-md scale-105' : 'bg-blue-100 text-blue-700 hover:bg-blue-200')
+                      : (workout.workout === 'hotYoga'
+                          ? (isSelected ? 'bg-orange-600 text-white shadow-md scale-105' : 'bg-orange-100 text-orange-700 hover:bg-orange-200')
+                          : (isSelected ? 'bg-pink-600 text-white shadow-md scale-105' : 'bg-pink-400 text-white hover:bg-pink-500')
+                        )
+                    )
+                  : 'bg-gray-50 text-gray-400';
+
                 return (
                   <button
                     key={idx}
                     onClick={() => workout && setSelectedHistoryDate(date)}
-                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${
-                      workout 
-                        ? isSelected ? 'bg-pink-600 text-white shadow-md scale-105' : 'bg-pink-400 text-white hover:bg-pink-500' 
-                        : 'bg-gray-50 text-gray-400'
-                    } ${isToday ? 'ring-2 ring-offset-2 ring-pink-400' : ''} ${isBirthday ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''}`}
+                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${dayClass} ${isToday ? 'ring-2 ring-offset-2 ring-pink-400' : ''} ${isBirthday ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''}`}
                   >
                     {isBirthday && !workout ? <span className="text-lg">🎂</span> : (
                         <>
-                            <div className="font-bold">{date.getDate()}</div>
+                            <div className="font-bold text-sm">{date.getDate()}</div>
                             {workout && (
-                            <div className="text-[10px] leading-none mt-1 opacity-90">{workout.workout}</div>
+                            <div className="text-lg leading-none mt-0.5">
+                              {workout.workout === 'rest' ? '✨' : '⭐'}
+                            </div>
                             )}
                         </>
                     )}
@@ -1498,7 +2062,12 @@ const deleteWorkout = (date: Date) => {
               <div className="flex justify-between items-start mb-3 border-b border-gray-100 pb-3">
                 <div>
                   <h3 className="font-bold text-gray-800 text-lg">
-                    {WORKOUTS[getWorkoutForDate(selectedHistoryDate)!.workout].name}
+                    {(() => {
+                      const workout = getWorkoutForDate(selectedHistoryDate)!;
+                      if (workout.workout === 'rest') return 'Rest Day';
+                      if (workout.workout === 'hotYoga') return 'Hot Yoga';
+                      return WORKOUTS[workout.workout].name;
+                    })()}
                   </h3>
                   <p className="text-xs text-gray-500">
                     {selectedHistoryDate.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
@@ -1520,14 +2089,22 @@ const deleteWorkout = (date: Date) => {
                 </div>
               </div>
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                {getWorkoutForDate(selectedHistoryDate)!.exercises.map((ex, i) => (
-                  <div key={i} className="flex justify-between items-center text-sm p-2 rounded hover:bg-gray-50">
-                    <span className="font-medium text-gray-700">{ex.exercise}</span>
-                    <span className="font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                        {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
-                    </span>
-                  </div>
-                ))}
+                {getWorkoutForDate(selectedHistoryDate)!.exercises.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    {getWorkoutForDate(selectedHistoryDate)!.workout === 'rest' 
+                      ? 'Rest day - no exercises logged' 
+                      : 'Hot yoga - no exercises logged'}
+                  </p>
+                ) : (
+                  getWorkoutForDate(selectedHistoryDate)!.exercises.map((ex, i) => (
+                    <div key={i} className="flex justify-between items-center text-sm p-2 rounded hover:bg-gray-50">
+                      <span className="font-medium text-gray-700">{ex.exercise}</span>
+                      <span className="font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                          {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -1560,6 +2137,27 @@ const deleteWorkout = (date: Date) => {
   }
 
   if (screen === 'export') {
+    const handleDownload = () => {
+      const element = document.createElement('a');
+      const file = new Blob([exportData()], {type: 'application/json'});
+      element.href = URL.createObjectURL(file);
+      element.download = `bekah-builder-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    };
+
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImportText(e.target?.result as string);
+        };
+        reader.readAsText(file);
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
         <div className="max-w-md mx-auto">
@@ -1576,48 +2174,175 @@ const deleteWorkout = (date: Date) => {
           <div className="space-y-6">
             {/* Export Section */}
             <div className="bg-white rounded-2xl p-6 shadow-lg">
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Download size={20} className="text-pink-500" />
                     Export Data
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">Copy this code to save your history elsewhere.</p>
-                <textarea
-                    value={exportData()}
-                    readOnly
-                    onClick={(e) => e.currentTarget.select()}
-                    className="w-full h-32 p-3 border border-gray-200 rounded-lg text-xs font-mono bg-gray-50 focus:border-pink-400 focus:ring-2 focus:ring-pink-100 outline-none mb-2"
-                />
-                <button 
-                    onClick={copyToClipboard}
-                    className="w-full bg-pink-100 text-pink-700 font-semibold py-2 rounded-lg hover:bg-pink-200 transition-colors"
-                >
-                    Copy to Clipboard
-                </button>
+                <div className="flex gap-2 mb-4">
+                  <button 
+                      onClick={handleDownload}
+                      className="flex-1 bg-pink-500 text-white font-semibold py-3 rounded-lg hover:bg-pink-600 transition-colors active:scale-95"
+                  >
+                      Download File
+                  </button>
+                  <button 
+                      onClick={copyToClipboard}
+                      className="flex-1 bg-pink-100 text-pink-700 font-semibold py-3 rounded-lg hover:bg-pink-200 transition-colors active:scale-95"
+                  >
+                      Copy JSON
+                  </button>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg max-h-32 overflow-y-auto">
+                  <p className="text-xs font-mono text-gray-600 whitespace-pre-wrap break-words">{exportData().substring(0, 200)}...</p>
+                </div>
             </div>
 
             {/* Import Section */}
             <div className="bg-white rounded-2xl p-6 shadow-lg">
-                <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                     <Upload size={20} className="text-blue-500" />
                     Import Data
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">Paste previously exported code here to restore history.</p>
-                <textarea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    placeholder='Paste JSON here...'
-                    className="w-full h-32 p-3 border border-gray-200 rounded-lg text-xs font-mono focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none mb-2"
-                />
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Upload File</label>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleFileUpload}
+                      className="w-full border-2 border-dashed border-blue-200 rounded-lg p-3 cursor-pointer hover:border-blue-400 transition-colors"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 text-center">OR</p>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Paste JSON</label>
+                    <textarea
+                        value={importText}
+                        onChange={(e) => setImportText(e.target.value)}
+                        placeholder='Paste JSON here...'
+                        className="w-full h-32 p-3 border border-gray-200 rounded-lg text-xs font-mono focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none"
+                    />
+                  </div>
+                </div>
                 <button 
                     onClick={importData}
                     disabled={!importText}
-                    className="w-full bg-blue-100 text-blue-700 font-semibold py-2 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-blue-500 text-white font-semibold py-3 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
                 >
                     Restore History
                 </button>
             </div>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (screen === 'shop') {
+    const starPoints = calculateStarPoints();
+    
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
+        {confetti.map(c => (
+          <div
+            key={c.id}
+            className="confetti"
+            style={{
+              backgroundColor: c.color,
+              left: c.left,
+              animationDuration: c.animationDuration,
+              animationDelay: c.delay
+            }}
+          />
+        ))}
+        <div className="max-w-md mx-auto">
+          <button
+            onClick={() => setScreen('home')}
+            className="mb-4 text-pink-600 flex items-center gap-2"
+          >
+            <ArrowLeft size={20} />
+            <span>Back</span>
+          </button>
+
+          <div className="text-center mb-6">
+            <span className="text-5xl">🎁</span>
+            <h2 className="text-2xl font-bold text-pink-600 mt-2">Reward Shop</h2>
+            <div className="mt-4 flex gap-3 justify-center items-center">
+              <div className="bg-white rounded-lg px-3 py-2 shadow-md inline-flex items-center gap-2">
+                <span className="text-2xl">⭐</span>
+                <div className="text-left">
+                  <div className="text-xs text-gray-500">Gold</div>
+                  <div className="font-bold text-yellow-500">{stars.gold}</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg px-3 py-2 shadow-md inline-flex items-center gap-2">
+                <span className="text-2xl">✨</span>
+                <div className="text-left">
+                  <div className="text-xs text-gray-500">Silver</div>
+                  <div className="font-bold text-gray-400">{stars.silver}</div>
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-3 shadow-md inline-block">
+                <p className="text-sm text-gray-600">Your Points: <span className="font-bold text-blue-500 text-lg">{starPoints}</span></p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {REWARDS.slice().sort((a,b) => a.cost - b.cost).map(reward => (
+              <button
+                key={reward.id}
+                onClick={() => purchaseReward(reward)}
+                className={`w-full rounded-xl p-4 shadow-md text-left transition-all active:scale-95 ${
+                  starPoints >= reward.cost
+                    ? 'bg-white hover:shadow-lg cursor-pointer'
+                    : 'bg-gray-100 opacity-60 cursor-not-allowed'
+                }`}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-bold text-gray-800">{reward.name}</h3>
+                  <span className={`text-sm font-bold px-2 py-1 rounded ${
+                    starPoints >= reward.cost
+                      ? 'bg-blue-100 text-blue-600'
+                      : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {reward.cost} pts
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600">{reward.description}</p>
+                {starPoints < reward.cost && (
+                  <p className="text-xs text-red-500 mt-2">Need {reward.cost - starPoints} more points</p>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Reward Purchase Screen */}
+        {showRewardPurchaseScreen && purchasedReward && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-auto">
+            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center my-auto">
+              <div className="text-7xl mb-4 animate-bounce">🎉</div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">Reward Redeemed!</h3>
+              <p className="text-3xl mb-4">{purchasedReward.name}</p>
+              <p className="text-gray-600 mb-2">{purchasedReward.description}</p>
+              <p className="text-xs text-gray-400 mb-6">{new Date().toLocaleDateString()} at {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+              <p className="text-sm text-gray-500 mb-6">Take a screenshot to save this!</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowRewardPurchaseScreen(false);
+                    setPurchasedReward(null);
+                    setConfetti([]);
+                  }}
+                  className="flex-1 bg-pink-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-pink-600"
+                >
+                  Back to Shop
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
