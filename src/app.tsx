@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift } from 'lucide-react';
 
 // --- Types ---
@@ -43,7 +43,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
     name: 'Full Body A',
     focus: 'Squat Pattern',
     exercises: [
-      { name: 'Squats', sets: 3, repRange: '6-10', note: 'Machine/smith/barbell all fine', bodyweight: false },
+      { name: 'Squats', sets: 5, repRange: '6-10', note: 'Machine/smith/barbell all fine', bodyweight: false },
       { 
         name: 'Push-ups/DB Bench', 
         sets: 3, 
@@ -62,7 +62,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
     name: 'Full Body B',
     focus: 'Hip Hinge / Deadlift',
     exercises: [
-      { name: 'RDLs', sets: 3, repRange: '8-12', bodyweight: false },
+      { name: 'RDLs', sets: 5, repRange: '8-12', bodyweight: false },
       { 
         name: 'Lat Pulldowns/Assisted Pullups', 
         sets: 3, 
@@ -81,7 +81,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
     name: 'Full Body C',
     focus: 'Leg Press / Machine',
     exercises: [
-      { name: 'Leg Press', sets: 3, repRange: '8-12', bodyweight: false },
+      { name: 'Leg Press', sets: 5, repRange: '8-12', bodyweight: false },
       { name: 'DB OHP', sets: 3, repRange: '6-10', superset: 'Machine Row', bodyweight: false },
       { name: 'Machine Row', sets: 3, repRange: '8-12', isSuperset: true, bodyweight: false },
       { 
@@ -125,12 +125,12 @@ interface Reward {
 }
 
 const REWARDS: Reward[] = [
-  { id: 'kiss', name: 'Kiss', cost: 1, description: 'A sweet kiss from your bf 💋' },
-  { id: 'cuddle', name: 'Cuddle Session', cost: 12, description: '30 mins of cuddles 🤗' },
-  { id: 'massage', name: 'Massage', cost: 12, description: 'A relaxing shoulder massage 💆' },
-  { id: 'serenade', name: 'Can I sing for you?', cost: 15, description: 'Musical notes - get a serenade of the song of your choice from Steve 🎶' },
-  { id: 'date', name: 'Date Night', cost: 45, description: 'A special date of your choice 🌹' },
-  { id: 'movie', name: 'Movie Pick', cost: 6, description: 'You pick the movie 🎬' }
+  { id: 'kiss', name: 'Kiss', cost: 3, description: "A kiss from steve 💋" },
+  { id: 'snuggle', name: 'Snuggle Session', cost: 6, description: '30 mins of snuggles 🤗' },
+  { id: 'massage', name: 'Massage', cost: 12, description: "A relaxing massage from Steve's callused hands" },
+  { id: 'can-i-sing', name: 'Can I Sing For You?', cost: 15, description: 'Get a serenade of the song of your choice from Steve 🎶' },
+  { id: 'movie', name: 'Movie Pick', cost: 9, description: "You pick the movie tonight (wonder how far we'll make it through?)" },
+  { id: 'date', name: 'Date Night', cost: 45, description: 'A special date of your choice 🌹' }
 ];
 
 // --- Styles ---
@@ -194,6 +194,7 @@ export default function BekahBuilder() {
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [showRestChoice, setShowRestChoice] = useState(false);
   const [suggestedRestTime, setSuggestedRestTime] = useState(120);
+  const timerEndRef = useRef<number | null>(null);
   
   // UI State
   const [encouragement, setEncouragement] = useState('');
@@ -278,22 +279,34 @@ export default function BekahBuilder() {
   }, [screen, selectedWorkout, exerciseChoices, currentExerciseIdx, currentSetIdx, sessionData, weight, reps]);
 
   useEffect(() => {
+    // Use a Date-based timer so it works correctly when tab is inactive (avoids interval throttling)
     let interval: any;
-    if (timerActive && timerSeconds > 0) {
+    if (timerActive) {
       interval = setInterval(() => {
-        setTimerSeconds(s => s - 1);
-      }, 1000);
-    } else if (timerSeconds === 0 && timerActive) {
-      // Timer ran out — play sound, stop timer, and navigate as if Skip/Start was pressed
-      playTimerSound();
-      setTimerActive(false);
-      setShowRestChoice(false);
-      // Trigger the same navigation flow as skipping the rest
-      try {
-        performNavigation();
-      } catch (e) {
-        console.error('performNavigation failed on timer end', e);
-      }
+        if (timerEndRef.current) {
+          const remaining = Math.max(0, Math.round((timerEndRef.current - Date.now()) / 1000));
+          setTimerSeconds(remaining);
+          if (remaining <= 0) {
+            playTimerSound();
+            setTimerActive(false);
+            setShowRestChoice(false);
+            timerEndRef.current = null;
+            try { performNavigation(); } catch (e) { console.error('performNavigation failed on timer end', e); }
+          }
+        } else {
+          // fallback: decrement every tick
+          setTimerSeconds(s => {
+            if (s <= 1) {
+              playTimerSound();
+              setTimerActive(false);
+              setShowRestChoice(false);
+              try { performNavigation(); } catch (e) { console.error('performNavigation failed on timer end', e); }
+              return 0;
+            }
+            return s - 1;
+          });
+        }
+      }, 300);
     }
     return () => clearInterval(interval);
   }, [timerActive, timerSeconds]);
@@ -594,6 +607,7 @@ export default function BekahBuilder() {
 
   const startRest = (seconds: number) => {
     setTimerSeconds(seconds);
+    timerEndRef.current = Date.now() + seconds * 1000;
     setTimerActive(true);
     setShowRestChoice(false);
   };
@@ -601,6 +615,7 @@ export default function BekahBuilder() {
   const handleStartSet = () => {
     setTimerActive(false);
     setTimerSeconds(0);
+    timerEndRef.current = null;
     setShowRestChoice(false);
     performNavigation();
   };
@@ -608,7 +623,24 @@ export default function BekahBuilder() {
   const skipRest = () => {
     setShowRestChoice(false);
     setTimerActive(false);
+    timerEndRef.current = null;
     performNavigation();
+  }
+
+  const toggleTimerActive = () => {
+    if (timerActive) {
+      // pause: calculate remaining and clear end
+      if (timerEndRef.current) {
+        const rem = Math.max(0, Math.round((timerEndRef.current - Date.now()) / 1000));
+        setTimerSeconds(rem);
+      }
+      setTimerActive(false);
+      timerEndRef.current = null;
+    } else {
+      // resume: set new end based on current seconds
+      timerEndRef.current = Date.now() + (timerSeconds || suggestedRestTime) * 1000;
+      setTimerActive(true);
+    }
   }
 
   const finishWorkout = (finalSessionData: SetLog[]) => {
@@ -637,9 +669,24 @@ export default function BekahBuilder() {
     }
     
     setWorkoutHistory(newHistory);
-    
-    // Add gold star
-    setStars(prev => ({...prev, gold: prev.gold + 1}));
+    // Adjust stars for replacement (remove previous day's star if present, add new)
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      // treat hotYoga and regular workouts as gold
+      return { gold: 1, silver: 0 };
+    };
+
+    const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType(selectedWorkout);
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
     
     setShowCompletionScreen(true);
   };
@@ -778,9 +825,24 @@ const deleteWorkout = (date: Date) => {
     } else {
       newHistory = [restDaySession, ...workoutHistory];
     }
-    
+
+    // Adjust stars: subtract previous day's star if present, add rest day's silver star
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      return { gold: 1, silver: 0 };
+    };
+    const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType('rest');
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+
     setWorkoutHistory(newHistory);
-    setStars(prev => ({...prev, silver: prev.silver + 1}));
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
     setShowRestDayDialog(false);
     setShowRestDayComplete(true);
   };
@@ -810,9 +872,24 @@ const deleteWorkout = (date: Date) => {
     } else {
       newHistory = [hotYogaSession, ...workoutHistory];
     }
-    
+
+    // Adjust stars: remove previous star and add hotYoga gold star
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      return { gold: 1, silver: 0 };
+    };
+    const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType('hotYoga');
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+
     setWorkoutHistory(newHistory);
-    setStars(prev => ({...prev, gold: prev.gold + 1}));
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
     setShowHotYogaDialog(false);
     setShowHotYogaComplete(true);
     
@@ -1531,7 +1608,7 @@ const deleteWorkout = (date: Date) => {
 
               <div className="flex gap-3">
                 <button
-                  onClick={() => setTimerActive(!timerActive)}
+                  onClick={toggleTimerActive}
                   className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
                 >
                   {timerActive ? 'Pause' : 'Resume'}
@@ -1946,22 +2023,28 @@ const deleteWorkout = (date: Date) => {
                 const isSelected = selectedHistoryDate && date.toDateString() === selectedHistoryDate.toDateString();
                 const isBirthday = date.getDate() === 17 && date.getMonth() === 11; // Dec 17
                 
+                const dayClass = workout
+                  ? (workout.workout === 'rest'
+                      ? (isSelected ? 'bg-blue-600 text-white shadow-md scale-105' : 'bg-blue-100 text-blue-700 hover:bg-blue-200')
+                      : (workout.workout === 'hotYoga'
+                          ? (isSelected ? 'bg-orange-600 text-white shadow-md scale-105' : 'bg-orange-100 text-orange-700 hover:bg-orange-200')
+                          : (isSelected ? 'bg-pink-600 text-white shadow-md scale-105' : 'bg-pink-400 text-white hover:bg-pink-500')
+                        )
+                    )
+                  : 'bg-gray-50 text-gray-400';
+
                 return (
                   <button
                     key={idx}
                     onClick={() => workout && setSelectedHistoryDate(date)}
-                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${
-                      workout 
-                        ? isSelected ? 'bg-pink-600 text-white shadow-md scale-105' : 'bg-pink-400 text-white hover:bg-pink-500' 
-                        : 'bg-gray-50 text-gray-400'
-                    } ${isToday ? 'ring-2 ring-offset-2 ring-pink-400' : ''} ${isBirthday ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''}`}
+                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${dayClass} ${isToday ? 'ring-2 ring-offset-2 ring-pink-400' : ''} ${isBirthday ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''}`}
                   >
                     {isBirthday && !workout ? <span className="text-lg">🎂</span> : (
                         <>
                             <div className="font-bold text-sm">{date.getDate()}</div>
                             {workout && (
                             <div className="text-lg leading-none mt-0.5">
-                              {workout.workout === 'rest' ? '✨' : workout.workout === 'hotYoga' ? '🔥' : '⭐'}
+                              {workout.workout === 'rest' ? '✨' : '⭐'}
                             </div>
                             )}
                         </>
@@ -2204,7 +2287,7 @@ const deleteWorkout = (date: Date) => {
           </div>
 
           <div className="space-y-3">
-            {REWARDS.map(reward => (
+            {REWARDS.slice().sort((a,b) => a.cost - b.cost).map(reward => (
               <button
                 key={reward.id}
                 onClick={() => purchaseReward(reward)}
