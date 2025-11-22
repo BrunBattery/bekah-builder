@@ -26,12 +26,14 @@ interface SetLog {
   weight: number;
   reps: number;
   timestamp: string;
+  notes?: string;
 }
 
 interface WorkoutSession {
   workout: string;
   date: string;
   exercises: SetLog[];
+  preWorkoutCardio?: string;
 }
 
 type ScreenState = 'home' | 'workout' | 'history' | 'export' | 'import' | 'trophy' | 'shop' | 'dev';
@@ -92,7 +94,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
         superset: 'Back Extensions',
         bodyweight: null
       },
-      { name: 'Back Extensions', sets: 3, repRange: '12-15', note: 'Glute-focused', isSuperset: true, bodyweight: true },
+      { name: 'Back Extensions', sets: 3, repRange: '12-15', note: 'Glute-focused', isSuperset: true, bodyweight: false },
       { name: 'Calf Raises', sets: 3, repRange: '10-15', bodyweight: false }
     ]
   }
@@ -179,6 +181,7 @@ export default function BekahBuilder() {
   const [selectedWorkout, setSelectedWorkout] = useState<string | null>(null);
   const [exerciseChoices, setExerciseChoices] = useState<Record<string, string>>({});
   const [setupScreen, setSetupScreen] = useState(false);
+  const [preWorkoutCardio, setPreWorkoutCardio] = useState<string>('none');
   
   // Workout State
   const [currentExerciseIdx, setCurrentExerciseIdx] = useState(0);
@@ -202,6 +205,9 @@ export default function BekahBuilder() {
   
   const [weight, setWeight] = useState('');
   const [reps, setReps] = useState('');
+  const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
+  const [showNotesEditor, setShowNotesEditor] = useState(false);
+  const [currentNoteExercise, setCurrentNoteExercise] = useState<string | null>(null);
   const [showProgressView, setShowProgressView] = useState(false);
   const [expandedExercises, setExpandedExercises] = useState<Record<number, boolean>>({});
   const [showCompletionScreen, setShowCompletionScreen] = useState(false);
@@ -518,7 +524,8 @@ export default function BekahBuilder() {
       set: currentSetIdx + 1,
       weight: currentWeight,
       reps: currentReps,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      notes: exerciseNotes[exercise.name]
     };
 
     const newSessionData = [...sessionData, setData];
@@ -659,7 +666,8 @@ export default function BekahBuilder() {
     const workoutSession: WorkoutSession = {
       workout: selectedWorkout,
       date: new Date().toISOString(),
-      exercises: finalSessionData
+      exercises: finalSessionData,
+      preWorkoutCardio: preWorkoutCardio !== 'none' ? preWorkoutCardio : undefined
     };
     
     let newHistory;
@@ -707,10 +715,31 @@ export default function BekahBuilder() {
   
 const deleteWorkout = (date: Date) => {
   const dateStr = date.toDateString();
+  // Find the workout being deleted to adjust stars
+  const deletedSession = workoutHistory.find(session => {
+    const sessionDate = new Date(session.date);
+    return sessionDate.toDateString() === dateStr;
+  });
+
   const newHistory = workoutHistory.filter(session => {
     const sessionDate = new Date(session.date);
     return sessionDate.toDateString() !== dateStr;
   });
+
+  // Adjust stars for deleted workout
+  if (deletedSession) {
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      return { gold: 1, silver: 0 };
+    };
+    const deletedStars = starCountForType(deletedSession.workout);
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold - deletedStars.gold),
+      silver: Math.max(0, prev.silver - deletedStars.silver)
+    }));
+  }
+
   setWorkoutHistory(newHistory);
   setSelectedHistoryDate(null);
   setShowDeleteConfirm(false);
@@ -1074,6 +1103,26 @@ const deleteWorkout = (date: Date) => {
                 ))}
                 </div>
             )}
+
+            {/* Pre-Workout Cardio Selection */}
+            <div className="bg-gray-50 p-4 rounded-xl mb-4 border border-gray-100">
+              <h3 className="font-semibold text-gray-700 mb-3">Pre-Workout Cardio (optional):</h3>
+              <div className="grid grid-cols-2 gap-2">
+                {['None', 'Stairmaster', 'Rowing', 'Running'].map(option => (
+                  <button
+                    key={option}
+                    onClick={() => setPreWorkoutCardio(option === 'None' ? 'none' : option.toLowerCase())}
+                    className={`p-3 rounded-lg border-2 transition-all text-sm ${
+                      preWorkoutCardio === (option === 'None' ? 'none' : option.toLowerCase())
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
+                        : 'border-gray-200 bg-white text-gray-700'
+                    }`}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            </div>
             
             <button
               onClick={() => beginWorkout(selectedWorkout)}
@@ -1243,34 +1292,30 @@ const deleteWorkout = (date: Date) => {
           <div className="grid grid-cols-2 gap-3 mb-8">
             <button
               onClick={() => setShowHotYogaDialog(true)}
-              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group"
+              className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
             >
-              <div className="flex items-center justify-between">
-                <div className="text-left">
-                  <h3 className="text-lg font-bold text-orange-600 group-hover:text-orange-700 transition-colors flex items-center gap-2">
-                    🔥 Hot Yoga
-                  </h3>
-                  <p className="text-sm text-gray-500">Log a hot yoga session</p>
-                </div>
-                <div className="bg-orange-50 p-2 rounded-lg group-hover:bg-orange-100 transition-colors">
-                  <span className="text-2xl">🔥</span>
-                </div>
+              <div className="bg-orange-50 p-2 rounded-lg group-hover:bg-orange-100 transition-colors">
+                <span className="text-2xl">🔥</span>
+              </div>
+              <div className="text-center">
+                <h3 className="text-sm font-bold text-orange-600 group-hover:text-orange-700 transition-colors">
+                  Hot Yoga
+                </h3>
+                <p className="text-xs text-gray-500">Log yoga</p>
               </div>
             </button>
             <button
               onClick={addRestDay}
-              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group"
+              className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
             >
-              <div className="flex items-center justify-between">
-                <div className="text-left">
-                  <h3 className="text-lg font-bold text-blue-600 group-hover:text-blue-700 transition-colors flex items-center gap-2">
-                    😴 Rest Day
-                  </h3>
-                  <p className="text-sm text-gray-500">Log a rest day</p>
-                </div>
-                <div className="bg-blue-50 p-2 rounded-lg group-hover:bg-blue-100 transition-colors">
-                  <span className="text-2xl">😴</span>
-                </div>
+              <div className="bg-blue-50 p-2 rounded-lg group-hover:bg-blue-100 transition-colors">
+                <div className="text-2xl">😴</div>
+              </div>
+              <div className="text-center">
+                <h3 className="text-sm font-bold text-blue-600 group-hover:text-blue-700 transition-colors">
+                  Rest Day
+                </h3>
+                <p className="text-xs text-gray-500">Log rest</p>
               </div>
             </button>
           </div>
@@ -1901,12 +1946,49 @@ const deleteWorkout = (date: Date) => {
               <Check size={24} strokeWidth={3} />
               Log Set
             </button>
+
+            <button
+              onClick={() => {
+                setShowNotesEditor(true);
+                setCurrentNoteExercise(exercise.name);
+              }}
+              className="w-full bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm shadow-sm hover:bg-blue-100 transition-all active:scale-95"
+            >
+              📝 Add Notes for {exercise.name}
+            </button>
           </div>
 
           {/* Simple Affirmation Text */}
           <div className="text-center px-4 py-2">
             <p className="text-pink-400 font-medium text-sm">{encouragement}</p>
           </div>
+
+          {/* Notes Editor Modal */}
+          {showNotesEditor && currentNoteExercise && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+                <h3 className="text-xl font-bold text-gray-800 mb-3">Notes for {currentNoteExercise}</h3>
+                <p className="text-xs text-gray-500 mb-3">Form tips, feet placement, feedback, etc.</p>
+                <textarea
+                  value={exerciseNotes[currentNoteExercise] || ''}
+                  onChange={(e) => setExerciseNotes({...exerciseNotes, [currentNoteExercise]: e.target.value})}
+                  placeholder="Add your notes here..."
+                  className="w-full h-32 p-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 outline-none text-sm resize-none"
+                />
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => {
+                      setShowNotesEditor(false);
+                      setCurrentNoteExercise(null);
+                    }}
+                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -2097,11 +2179,18 @@ const deleteWorkout = (date: Date) => {
                   </p>
                 ) : (
                   getWorkoutForDate(selectedHistoryDate)!.exercises.map((ex, i) => (
-                    <div key={i} className="flex justify-between items-center text-sm p-2 rounded hover:bg-gray-50">
-                      <span className="font-medium text-gray-700">{ex.exercise}</span>
-                      <span className="font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                          {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
-                      </span>
+                    <div key={i} className="border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                      <div className="flex justify-between items-center text-sm p-2 rounded hover:bg-gray-50">
+                        <span className="font-medium text-gray-700">{ex.exercise}</span>
+                        <span className="font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                            {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
+                        </span>
+                      </div>
+                      {ex.notes && (
+                        <div className="text-xs text-gray-500 italic p-2 bg-blue-50 rounded mt-1 ml-2">
+                          📝 {ex.notes}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -2191,9 +2280,6 @@ const deleteWorkout = (date: Date) => {
                   >
                       Copy JSON
                   </button>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg max-h-32 overflow-y-auto">
-                  <p className="text-xs font-mono text-gray-600 whitespace-pre-wrap break-words">{exportData().substring(0, 200)}...</p>
                 </div>
             </div>
 
