@@ -255,6 +255,10 @@ export default function BekahBuilder() {
         const data = JSON.parse(saved);
         setWorkoutHistory(data.history || []);
         setStars(data.stars || {gold: 0, silver: 0});
+        // load independent exercise notes
+        if (data.exerciseNotes) {
+          setExerciseNotes(data.exerciseNotes);
+        }
       } catch (e) {
         console.error("Failed to parse history", e);
       }
@@ -270,10 +274,11 @@ export default function BekahBuilder() {
     if (workoutHistory.length > 0 || (stars.gold > 0 || stars.silver > 0)) {
       localStorage.setItem('bekah-builder-data', JSON.stringify({
         history: workoutHistory,
-        stars
+        stars,
+        exerciseNotes
       }));
     }
-  }, [workoutHistory, stars]);
+  }, [workoutHistory, stars, exerciseNotes]);
 
   useEffect(() => {
     if (screen === 'workout' && selectedWorkout) {
@@ -532,7 +537,7 @@ export default function BekahBuilder() {
       weight: currentWeight,
       reps: currentReps,
       timestamp: new Date().toISOString(),
-      notes: exerciseNotes[exercise.name]
+      // note: notes are now stored independently, not in sessionData
     };
 
     const newSessionData = [...sessionData, setData];
@@ -1161,11 +1166,6 @@ const deleteWorkout = (date: Date) => {
       return sd.getTime() === today.getTime();
     });
 
-    if (existingTodayIdx !== -1) {
-      const ok = window.confirm('This will overwrite today\'s existing entry. Continue?');
-      if (!ok) return;
-    }
-
     const workoutSession: WorkoutSession = {
       workout: 'custom',
       date: new Date().toISOString(),
@@ -1395,7 +1395,7 @@ const deleteWorkout = (date: Date) => {
               </div>
               <div className="text-center">
                 <h3 className="text-sm font-bold text-green-600 group-hover:text-green-700 transition-colors">
-                  Custom Workout
+                  Custom
                 </h3>
               </div>
             </button>
@@ -1955,13 +1955,18 @@ const deleteWorkout = (date: Date) => {
                     <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Last Time</p>
                     <p className="text-xs text-blue-400">{new Date(getLastWorkout()?.date || '').toLocaleDateString()}</p>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1">
+                <div className="flex gap-2 overflow-x-auto pb-1 mb-2">
                   {lastPerformance.map((set, idx) => (
                     <div key={idx} className="bg-white rounded px-2 py-1 text-xs font-mono text-blue-800 border border-blue-100 whitespace-nowrap">
                       {set.weight > 0 ? `${set.weight}lb × ` : ''}{set.reps}
                     </div>
                   ))}
                 </div>
+                {exerciseNotes[exercise.name] && (
+                  <div className="text-xs text-blue-700 italic mt-2 pt-2 border-t border-blue-100">
+                    📝 {exerciseNotes[exercise.name]}
+                  </div>
+                )}
               </div>
             )}
 
@@ -2272,12 +2277,9 @@ const deleteWorkout = (date: Date) => {
                   <p className="text-xs text-gray-500">
                     {selectedHistoryDate.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                   </p>
-                  {/* show cardio and custom plan if present */}
+                  {/* show cardio if present */}
                   {getWorkoutForDate(selectedHistoryDate)!.preWorkoutCardio && (
                     <p className="text-xs text-gray-500 mt-1">Cardio: <span className="font-medium text-gray-700">{getWorkoutForDate(selectedHistoryDate)!.preWorkoutCardio}</span></p>
-                  )}
-                  {getWorkoutForDate(selectedHistoryDate)!.customPlan && (
-                    <p className="text-xs text-gray-500 mt-1">Custom: <span className="font-medium text-gray-700">{getWorkoutForDate(selectedHistoryDate)!.customPlan}</span></p>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -2298,9 +2300,15 @@ const deleteWorkout = (date: Date) => {
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
                 {getWorkoutForDate(selectedHistoryDate)!.exercises.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-4">
-                    {getWorkoutForDate(selectedHistoryDate)!.workout === 'rest' 
-                      ? 'Rest day - no exercises logged' 
-                      : 'Hot yoga - no exercises logged'}
+                    {(() => {
+                      const workout = getWorkoutForDate(selectedHistoryDate)!;
+                      if (workout.workout === 'rest') return 'Rest day - no exercises logged';
+                      if (workout.workout === 'hotYoga') return 'Hot yoga - no exercises logged';
+                      if (workout.workout === 'custom' && workout.customPlan) {
+                        return `Custom: ${workout.customPlan}`;
+                      }
+                      return 'No exercises logged';
+                    })()}
                   </p>
                 ) : (
                   (() => {
@@ -2330,11 +2338,9 @@ const deleteWorkout = (date: Date) => {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => {
-                                    // open edit dialog for this exercise in this session
+                                    // open edit dialog for independent exercise notes
                                     setEditHistoryExercise(name);
-                                    // prefer first non-empty note, otherwise empty string
-                                    const firstNote = sets.map(s => s.notes).find(n => !!n) || '';
-                                    setEditHistoryNoteText(firstNote as string);
+                                    setEditHistoryNoteText(exerciseNotes[name] || '');
                                     setShowEditHistoryNote(true);
                                   }}
                                   className="text-sm text-indigo-600 hover:underline"
@@ -2343,26 +2349,19 @@ const deleteWorkout = (date: Date) => {
                                 </button>
                               </div>
                             </div>
-                        {/* show single exercise note once */}
-                        {(() => {
-                          const exerciseNote = sets.map(s => s.notes).find(n => !!n) || '';
-                          return (
-                            <div className="pl-2 pr-2">
-                              {exerciseNote && (
-                                <div className="text-xs text-gray-500 italic p-2 bg-blue-50 rounded mt-1">
-                                  📝 {exerciseNote}
-                                </div>
-                              )}
-                              <div className={`mt-2 space-y-1 transition-all overflow-hidden ${expandedExercises[name] === false ? 'max-h-0' : 'max-h-96'}`}>
-                                {sets.map((ex, i) => (
-                                  <div key={i} className="p-1 ml-2 rounded text-xs text-gray-600 font-mono">
-                                    {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
-                                  </div>
-                                ))}
-                              </div>
+                        {/* show independent exercise note if present */}
+                        {exerciseNotes[name] && (
+                          <div className="text-xs text-gray-500 italic p-2 bg-blue-50 rounded mt-1 ml-2 mb-2">
+                            📝 {exerciseNotes[name]}
+                          </div>
+                        )}
+                        <div className={`mt-2 space-y-1 transition-all overflow-hidden ${expandedExercises[name] === false ? 'max-h-0' : 'max-h-96'}`}>
+                          {sets.map((ex, i) => (
+                            <div key={i} className="p-1 ml-2 rounded text-xs text-gray-600 font-mono\">
+                              {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
                             </div>
-                          );
-                        })()}
+                          ))}
+                        </div>
                       </div>
                     ));
                   })()
@@ -2394,62 +2393,16 @@ const deleteWorkout = (date: Date) => {
             </div>
           )}
 
-          {showEditHistoryNote && editHistoryExercise && selectedHistoryDate && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
-                <h3 className="text-xl font-bold text-gray-800 mb-3">Edit Notes for {editHistoryExercise}</h3>
-                <p className="text-xs text-gray-500 mb-3">Edit notes for all sets of this exercise in the selected session.</p>
-                <textarea
-                  value={editHistoryNoteText}
-                  onChange={(e) => setEditHistoryNoteText(e.target.value)}
-                  placeholder="Notes..."
-                  className="w-full h-28 p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-400 outline-none text-sm resize-none"
-                />
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => setShowEditHistoryNote(false)}
-                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      // save edits back into workoutHistory for the selected date
-                      const dateStr = selectedHistoryDate.toDateString();
-                      const newHistory = workoutHistory.map(session => {
-                        const sd = new Date(session.date);
-                        if (sd.toDateString() !== dateStr) return session;
-                        const updated = { ...session };
-                        updated.exercises = updated.exercises.map(ex => {
-                          if (ex.exercise === editHistoryExercise) {
-                            return { ...ex, notes: editHistoryNoteText };
-                          }
-                          return ex;
-                        });
-                        return updated;
-                      });
-                      setWorkoutHistory(newHistory);
-                      setShowEditHistoryNote(false);
-                    }}
-                    className="flex-1 bg-indigo-600 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
-                  >
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-          {/* Edit History Note Modal */}
-          {showEditHistoryNote && editHistoryExercise && selectedHistoryDate && (
+          {showEditHistoryNote && editHistoryExercise && (
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
                 <h3 className="text-xl font-bold text-gray-800 mb-3">Edit notes for {editHistoryExercise}</h3>
-                <p className="text-xs text-gray-500 mb-3">Update the notes shown for this exercise in the selected session.</p>
+                <p className="text-xs text-gray-500 mb-3">This note applies to all workouts with this exercise.</p>
                 <textarea
                   value={editHistoryNoteText}
                   onChange={(e) => setEditHistoryNoteText(e.target.value)}
                   placeholder="Add or edit notes..."
-                  className="w-full h-28 p-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 outline-none text-sm resize-none"
+                  className="w-full h-28 p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-400 outline-none text-sm resize-none"
                 />
                 <div className="flex gap-3 mt-4">
                   <button
@@ -2464,21 +2417,17 @@ const deleteWorkout = (date: Date) => {
                   </button>
                   <button
                     onClick={() => {
-                      if (!selectedHistoryDate || !editHistoryExercise) return;
-                      const dateStr = selectedHistoryDate.toDateString();
-                      setWorkoutHistory(prev => prev.map(session => {
-                        const sd = new Date(session.date);
-                        if (sd.toDateString() !== dateStr) return session;
-                        const newExercises = session.exercises.map(ex => (
-                          ex.exercise === editHistoryExercise ? {...ex, notes: editHistoryNoteText} : ex
-                        ));
-                        return {...session, exercises: newExercises};
+                      if (!editHistoryExercise) return;
+                      // save to independent exerciseNotes (applies to all workouts with this exercise)
+                      setExerciseNotes(prev => ({
+                        ...prev,
+                        [editHistoryExercise]: editHistoryNoteText
                       }));
                       setShowEditHistoryNote(false);
                       setEditHistoryExercise(null);
                       setEditHistoryNoteText('');
                     }}
-                    className="flex-1 bg-pink-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
+                    className="flex-1 bg-indigo-600 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
                   >
                     Save
                   </button>
