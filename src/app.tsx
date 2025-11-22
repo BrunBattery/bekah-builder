@@ -34,7 +34,9 @@ interface WorkoutSession {
   date: string;
   exercises: SetLog[];
   preWorkoutCardio?: string;
+  customPlan?: string;
 }
+
 
 type ScreenState = 'home' | 'workout' | 'history' | 'export' | 'import' | 'trophy' | 'shop' | 'dev';
 
@@ -208,8 +210,13 @@ export default function BekahBuilder() {
   const [exerciseNotes, setExerciseNotes] = useState<Record<string, string>>({});
   const [showNotesEditor, setShowNotesEditor] = useState(false);
   const [currentNoteExercise, setCurrentNoteExercise] = useState<string | null>(null);
+  const [showEditHistoryNote, setShowEditHistoryNote] = useState(false);
+  const [editHistoryExercise, setEditHistoryExercise] = useState<string | null>(null);
+  const [editHistoryNoteText, setEditHistoryNoteText] = useState('');
+  const [showCustomDialog, setShowCustomDialog] = useState(false);
+  const [customText, setCustomText] = useState('');
   const [showProgressView, setShowProgressView] = useState(false);
-  const [expandedExercises, setExpandedExercises] = useState<Record<number, boolean>>({});
+  const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
   const [showCompletionScreen, setShowCompletionScreen] = useState(false);
   const [selectedHistoryDate, setSelectedHistoryDate] = useState<Date | null>(null);
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
@@ -1108,19 +1115,27 @@ const deleteWorkout = (date: Date) => {
             <div className="bg-gray-50 p-4 rounded-xl mb-4 border border-gray-100">
               <h3 className="font-semibold text-gray-700 mb-3">Pre-Workout Cardio (optional):</h3>
               <div className="grid grid-cols-2 gap-2">
-                {['None', 'Stairmaster', 'Rowing', 'Running'].map(option => (
-                  <button
-                    key={option}
-                    onClick={() => setPreWorkoutCardio(option === 'None' ? 'none' : option.toLowerCase())}
-                    className={`p-3 rounded-lg border-2 transition-all text-sm ${
-                      preWorkoutCardio === (option === 'None' ? 'none' : option.toLowerCase())
-                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
-                        : 'border-gray-200 bg-white text-gray-700'
-                    }`}
-                  >
-                    {option}
-                  </button>
-                ))}
+                {['None', 'Stairmaster', 'Rowing', 'Running'].map(option => {
+                  const optKey = option === 'None' ? 'none' : option.toLowerCase();
+                  const lastCardio = getLastWorkout()?.preWorkoutCardio;
+                  const isLastDone = lastCardio && lastCardio === optKey;
+                  return (
+                    <button
+                      key={option}
+                      onClick={() => setPreWorkoutCardio(optKey)}
+                      className={`p-3 rounded-lg border-2 transition-all text-sm ${
+                        preWorkoutCardio === optKey
+                          ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
+                          : 'border-gray-200 bg-white text-gray-700'
+                      } ${isLastDone ? 'opacity-60' : ''}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span>{option}</span>
+                        {isLastDone && <span className="text-xs text-gray-400">last</span>}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
             
@@ -1135,6 +1150,61 @@ const deleteWorkout = (date: Date) => {
       </div>
     );
   }
+
+  // Custom workout save handler
+  const saveCustomWorkout = () => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const existingTodayIdx = workoutHistory.findIndex(session => {
+      const sd = new Date(session.date);
+      sd.setHours(0,0,0,0);
+      return sd.getTime() === today.getTime();
+    });
+
+    if (existingTodayIdx !== -1) {
+      const ok = window.confirm('This will overwrite today\'s existing entry. Continue?');
+      if (!ok) return;
+    }
+
+    const workoutSession: WorkoutSession = {
+      workout: 'custom',
+      date: new Date().toISOString(),
+      exercises: [],
+      customPlan: customText || undefined
+    };
+
+    let newHistory;
+    if (existingTodayIdx !== -1) {
+      newHistory = [...workoutHistory];
+      newHistory[existingTodayIdx] = workoutSession;
+    } else {
+      newHistory = [workoutSession, ...workoutHistory];
+    }
+    setWorkoutHistory(newHistory);
+
+    // adjust stars: remove previous day's stars, add gold for custom
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      return { gold: 1, silver: 0 };
+    };
+
+    const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType('custom');
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
+
+    // small confetti
+    setConfetti([{ id: Date.now(), color: '#FFB3C7', left: '30%', animationDuration: '1.2s', delay: '0s' }]);
+
+    setShowCustomDialog(false);
+    setCustomText('');
+  };
 
   if (showCompletionScreen) {
     return (
@@ -1289,10 +1359,10 @@ const deleteWorkout = (date: Date) => {
             })}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-8">
+          <div className="grid grid-cols-3 gap-3 mb-8">
             <button
               onClick={() => setShowHotYogaDialog(true)}
-              className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
             >
               <div className="bg-orange-50 p-2 rounded-lg group-hover:bg-orange-100 transition-colors">
                 <span className="text-2xl">🔥</span>
@@ -1301,12 +1371,11 @@ const deleteWorkout = (date: Date) => {
                 <h3 className="text-sm font-bold text-orange-600 group-hover:text-orange-700 transition-colors">
                   Hot Yoga
                 </h3>
-                <p className="text-xs text-gray-500">Log yoga</p>
               </div>
             </button>
             <button
               onClick={addRestDay}
-              className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
             >
               <div className="bg-blue-50 p-2 rounded-lg group-hover:bg-blue-100 transition-colors">
                 <div className="text-2xl">😴</div>
@@ -1315,7 +1384,19 @@ const deleteWorkout = (date: Date) => {
                 <h3 className="text-sm font-bold text-blue-600 group-hover:text-blue-700 transition-colors">
                   Rest Day
                 </h3>
-                <p className="text-xs text-gray-500">Log rest</p>
+              </div>
+            </button>
+            <button
+              onClick={() => setShowCustomDialog(true)}
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
+            >
+              <div className="bg-green-50 p-2 rounded-lg group-hover:bg-green-100 transition-colors">
+                <span className="text-2xl">✍️</span>
+              </div>
+              <div className="text-center">
+                <h3 className="text-sm font-bold text-green-600 group-hover:text-green-700 transition-colors">
+                  Custom Workout
+                </h3>
               </div>
             </button>
           </div>
@@ -1362,7 +1443,7 @@ const deleteWorkout = (date: Date) => {
             <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
               <div className="text-6xl mb-4 animate-bounce">🔥</div>
               <h3 className="text-2xl font-bold text-gray-800 mb-3">Hot Yoga</h3>
-              <p className="text-gray-600 mb-2">Did you complete your hot yoga workout today?</p>
+              <p className="text-gray-600 mb-2">Log a hot yoga session for today?</p>
               <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
               <div className="flex gap-3">
                 <button
@@ -1381,6 +1462,39 @@ const deleteWorkout = (date: Date) => {
             </div>
           </div>
         )}
+
+          {/* Custom Workout Dialog */}
+          {showCustomDialog && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
+                <div className="text-6xl mb-4">✍️</div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-3">Custom Workout</h3>
+                <p className="text-gray-600 mb-2">Log a custom workout for today?</p>
+                <p className="text-xs text-gray-500 mb-4">(this will overwrite any previous workout for today)</p>
+                <textarea
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  placeholder="e.g. RDLs - 135lbs - 3 sets of 10, 9, 8 reps"
+                  className="w-full h-24 p-3 border-2 border-gray-200 rounded-lg focus:border-green-400 outline-none text-sm resize-none mb-4"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => { setShowCustomDialog(false); setCustomText(''); }}
+                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveCustomWorkout}
+                    disabled={!customText.trim()}
+                    className="flex-1 bg-green-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600"
+                  >
+                    Yes! ✍️
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
         {/* Dev Menu */}
         {showDevMenu && (
@@ -2112,7 +2226,10 @@ const deleteWorkout = (date: Date) => {
                       ? (isSelected ? 'bg-blue-600 text-white shadow-md scale-105' : 'bg-blue-100 text-blue-700 hover:bg-blue-200')
                       : (workout.workout === 'hotYoga'
                           ? (isSelected ? 'bg-orange-600 text-white shadow-md scale-105' : 'bg-orange-100 text-orange-700 hover:bg-orange-200')
-                          : (isSelected ? 'bg-pink-600 text-white shadow-md scale-105' : 'bg-pink-400 text-white hover:bg-pink-500')
+                          : (workout.workout === 'custom'
+                              ? (isSelected ? 'bg-green-600 text-white shadow-md scale-105' : 'bg-green-50 text-green-700 hover:bg-green-100')
+                              : (isSelected ? 'bg-pink-600 text-white shadow-md scale-105' : 'bg-pink-400 text-white hover:bg-pink-500')
+                            )
                         )
                     )
                   : 'bg-gray-50 text-gray-400';
@@ -2148,12 +2265,20 @@ const deleteWorkout = (date: Date) => {
                       const workout = getWorkoutForDate(selectedHistoryDate)!;
                       if (workout.workout === 'rest') return 'Rest Day';
                       if (workout.workout === 'hotYoga') return 'Hot Yoga';
-                      return WORKOUTS[workout.workout].name;
+                      if (workout.workout === 'custom') return 'Custom Workout';
+                      return WORKOUTS[workout.workout]?.name || 'Workout';
                     })()}
                   </h3>
                   <p className="text-xs text-gray-500">
                     {selectedHistoryDate.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                   </p>
+                  {/* show cardio and custom plan if present */}
+                  {getWorkoutForDate(selectedHistoryDate)!.preWorkoutCardio && (
+                    <p className="text-xs text-gray-500 mt-1">Cardio: <span className="font-medium text-gray-700">{getWorkoutForDate(selectedHistoryDate)!.preWorkoutCardio}</span></p>
+                  )}
+                  {getWorkoutForDate(selectedHistoryDate)!.customPlan && (
+                    <p className="text-xs text-gray-500 mt-1">Custom: <span className="font-medium text-gray-700">{getWorkoutForDate(selectedHistoryDate)!.customPlan}</span></p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -2178,21 +2303,69 @@ const deleteWorkout = (date: Date) => {
                       : 'Hot yoga - no exercises logged'}
                   </p>
                 ) : (
-                  getWorkoutForDate(selectedHistoryDate)!.exercises.map((ex, i) => (
-                    <div key={i} className="border-b border-gray-100 last:border-0 pb-2 last:pb-0">
-                      <div className="flex justify-between items-center text-sm p-2 rounded hover:bg-gray-50">
-                        <span className="font-medium text-gray-700">{ex.exercise}</span>
-                        <span className="font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                            {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
-                        </span>
+                  (() => {
+                    const workout = getWorkoutForDate(selectedHistoryDate)!;
+                    // group sets by exercise name
+                    const grouped: Record<string, typeof workout.exercises> = {};
+                    workout.exercises.forEach((s) => {
+                      if (!grouped[s.exercise]) grouped[s.exercise] = [];
+                      grouped[s.exercise].push(s as any);
+                    });
+
+                    return Object.entries(grouped).map(([name, sets]) => (
+                      <div key={name} className="border-b border-gray-100 last:border-0 pb-2 last:pb-0">
+                            <div className="flex justify-between items-center text-sm p-2 rounded hover:bg-gray-50">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => setExpandedExercises(prev => ({...prev, [name]: !prev[name]}))}
+                                  className="text-xs text-gray-400 p-1 rounded hover:bg-gray-100"
+                                >
+                                  {expandedExercises[name] === false ? '▸' : '▾'}
+                                </button>
+                                <div>
+                                  <div className="font-medium text-gray-700">{name}</div>
+                                  <div className="text-xs text-gray-500">{sets.length} set{sets.length > 1 ? 's' : ''}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    // open edit dialog for this exercise in this session
+                                    setEditHistoryExercise(name);
+                                    // prefer first non-empty note, otherwise empty string
+                                    const firstNote = sets.map(s => s.notes).find(n => !!n) || '';
+                                    setEditHistoryNoteText(firstNote as string);
+                                    setShowEditHistoryNote(true);
+                                  }}
+                                  className="text-sm text-indigo-600 hover:underline"
+                                >
+                                  Edit Notes
+                                </button>
+                              </div>
+                            </div>
+                        {/* show single exercise note once */}
+                        {(() => {
+                          const exerciseNote = sets.map(s => s.notes).find(n => !!n) || '';
+                          return (
+                            <div className="pl-2 pr-2">
+                              {exerciseNote && (
+                                <div className="text-xs text-gray-500 italic p-2 bg-blue-50 rounded mt-1">
+                                  📝 {exerciseNote}
+                                </div>
+                              )}
+                              <div className={`mt-2 space-y-1 transition-all overflow-hidden ${expandedExercises[name] === false ? 'max-h-0' : 'max-h-96'}`}>
+                                {sets.map((ex, i) => (
+                                  <div key={i} className="p-1 ml-2 rounded text-xs text-gray-600 font-mono">
+                                    {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
-                      {ex.notes && (
-                        <div className="text-xs text-gray-500 italic p-2 bg-blue-50 rounded mt-1 ml-2">
-                          📝 {ex.notes}
-                        </div>
-                      )}
-                    </div>
-                  ))
+                    ));
+                  })()
                 )}
               </div>
             </div>
@@ -2215,6 +2388,99 @@ const deleteWorkout = (date: Date) => {
                     className="flex-1 bg-red-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
                   >
                     Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {showEditHistoryNote && editHistoryExercise && selectedHistoryDate && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
+                <h3 className="text-xl font-bold text-gray-800 mb-3">Edit Notes for {editHistoryExercise}</h3>
+                <p className="text-xs text-gray-500 mb-3">Edit notes for all sets of this exercise in the selected session.</p>
+                <textarea
+                  value={editHistoryNoteText}
+                  onChange={(e) => setEditHistoryNoteText(e.target.value)}
+                  placeholder="Notes..."
+                  className="w-full h-28 p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-400 outline-none text-sm resize-none"
+                />
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => setShowEditHistoryNote(false)}
+                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      // save edits back into workoutHistory for the selected date
+                      const dateStr = selectedHistoryDate.toDateString();
+                      const newHistory = workoutHistory.map(session => {
+                        const sd = new Date(session.date);
+                        if (sd.toDateString() !== dateStr) return session;
+                        const updated = { ...session };
+                        updated.exercises = updated.exercises.map(ex => {
+                          if (ex.exercise === editHistoryExercise) {
+                            return { ...ex, notes: editHistoryNoteText };
+                          }
+                          return ex;
+                        });
+                        return updated;
+                      });
+                      setWorkoutHistory(newHistory);
+                      setShowEditHistoryNote(false);
+                    }}
+                    className="flex-1 bg-indigo-600 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Edit History Note Modal */}
+          {showEditHistoryNote && editHistoryExercise && selectedHistoryDate && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+                <h3 className="text-xl font-bold text-gray-800 mb-3">Edit notes for {editHistoryExercise}</h3>
+                <p className="text-xs text-gray-500 mb-3">Update the notes shown for this exercise in the selected session.</p>
+                <textarea
+                  value={editHistoryNoteText}
+                  onChange={(e) => setEditHistoryNoteText(e.target.value)}
+                  placeholder="Add or edit notes..."
+                  className="w-full h-28 p-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 outline-none text-sm resize-none"
+                />
+                <div className="flex gap-3 mt-4">
+                  <button
+                    onClick={() => {
+                      setShowEditHistoryNote(false);
+                      setEditHistoryExercise(null);
+                      setEditHistoryNoteText('');
+                    }}
+                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!selectedHistoryDate || !editHistoryExercise) return;
+                      const dateStr = selectedHistoryDate.toDateString();
+                      setWorkoutHistory(prev => prev.map(session => {
+                        const sd = new Date(session.date);
+                        if (sd.toDateString() !== dateStr) return session;
+                        const newExercises = session.exercises.map(ex => (
+                          ex.exercise === editHistoryExercise ? {...ex, notes: editHistoryNoteText} : ex
+                        ));
+                        return {...session, exercises: newExercises};
+                      }));
+                      setShowEditHistoryNote(false);
+                      setEditHistoryExercise(null);
+                      setEditHistoryNoteText('');
+                    }}
+                    className="flex-1 bg-pink-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
+                  >
+                    Save
                   </button>
                 </div>
               </div>
