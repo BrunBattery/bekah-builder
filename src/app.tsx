@@ -1295,8 +1295,8 @@ export default function BekahBuilder() {
                             key={optionName}
                             onClick={() => setExerciseChoices({ ...exerciseChoices, [exercise.name]: optionName })}
                             className={`p-3 rounded-lg border-2 transition-all text-sm ${exerciseChoices[exercise.name] === optionName
-                                ? 'border-pink-500 bg-pink-50 text-pink-700 font-semibold'
-                                : 'border-gray-200 bg-white text-gray-700'
+                              ? 'border-pink-500 bg-pink-50 text-pink-700 font-semibold'
+                              : 'border-gray-200 bg-white text-gray-700'
                               }`}
                           >
                             {optionName}
@@ -1322,8 +1322,8 @@ export default function BekahBuilder() {
                       key={option}
                       onClick={() => setPreWorkoutCardio(optKey)}
                       className={`p-3 rounded-lg border-2 transition-all text-sm ${preWorkoutCardio === optKey
-                          ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
-                          : 'border-gray-200 bg-white text-gray-700'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-semibold'
+                        : 'border-gray-200 bg-white text-gray-700'
                         } ${isLastDone ? 'opacity-60' : ''}`}
                     >
                       <div className="flex items-center justify-between">
@@ -1723,7 +1723,7 @@ export default function BekahBuilder() {
         {showCustomDialog && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
-                <Dumbbell className="text-green-400 mx-auto mb-4" size={56} />
+              <Dumbbell className="text-green-400 mx-auto mb-4" size={56} />
               <h3 className="text-2xl font-bold text-gray-800 mb-3">Custom Workout</h3>
               <p className="text-gray-600 mb-2">Log a custom workout for today?</p>
               <p className="text-xs text-gray-500 mb-4">(this will overwrite any previous workout for today)</p>
@@ -1988,8 +1988,8 @@ export default function BekahBuilder() {
                     key={seconds}
                     onClick={() => startRest(seconds)}
                     className={`w-full rounded-xl p-4 font-bold text-lg shadow-lg active:scale-95 transition-all flex justify-between items-center px-6 ${seconds === suggestedRestTime
-                        ? 'bg-pink-500 text-white hover:bg-pink-600 ring-4 ring-pink-200'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-pink-500 text-white hover:bg-pink-600 ring-4 ring-pink-200'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                       }`}
                   >
                     <span>{seconds / 60} {seconds === 60 ? 'minute' : 'minutes'}</span>
@@ -2271,7 +2271,7 @@ export default function BekahBuilder() {
             {/* Inputs - show stopwatch controls for exercises that record duration */}
             {exercise.stopwatch ? (
               <div className="mb-6 text-center">
-                <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">Duration</label>
+                <label className="block text-xs font-bold text-gray-400 mb-4 uppercase tracking-wide">Duration</label>
                 <Timer className={`text-pink-400 mx-auto mb-4 ${deadHangActive ? 'animate-pulse' : ''}`} size={48} />
                 <p className="text-5xl font-mono text-pink-600 mb-4">{formatTimeMs(deadHangMs)}</p>
 
@@ -2911,15 +2911,15 @@ export default function BekahBuilder() {
                 key={reward.id}
                 onClick={() => purchaseReward(reward)}
                 className={`w-full rounded-xl p-4 shadow-md text-left transition-all active:scale-95 ${starPoints >= reward.cost
-                    ? 'bg-white hover:shadow-lg cursor-pointer'
-                    : 'bg-gray-100 opacity-60 cursor-not-allowed'
+                  ? 'bg-white hover:shadow-lg cursor-pointer'
+                  : 'bg-gray-100 opacity-60 cursor-not-allowed'
                   }`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-bold text-gray-800">{reward.name}</h3>
                   <span className={`text-sm font-bold px-2 py-1 rounded ${starPoints >= reward.cost
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'bg-gray-200 text-gray-500'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'bg-gray-200 text-gray-500'
                     }`}>
                     {reward.cost} pts
                   </span>
