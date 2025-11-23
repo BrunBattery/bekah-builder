@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift, Flame, Moon, FileText, PenTool } from 'lucide-react';
+import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift, Flame, Moon, PenTool } from 'lucide-react';
 
 // --- Types ---
 
@@ -229,6 +229,39 @@ export default function BekahBuilder() {
   // Confetti State
   const [confetti, setConfetti] = useState<{ id: number, color: string, left: string, animationDuration: string, delay: string }[]>([]);
 
+  // Centralized confetti helper
+  const spawnConfetti = (type: 'workout' | 'rest' | 'custom' | 'shop' | 'hotYoga') => {
+    let colors: string[] = [];
+    let count = 60;
+    switch (type) {
+      case 'rest':
+        colors = ['#1e40af', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'];
+        break;
+      case 'custom':
+        colors = ['#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0'];
+        break;
+      case 'shop':
+        colors = ['#ffd700', '#ffed4e', '#ffc700', '#f4c430', '#ffe135'];
+        count = 80;
+        break;
+      case 'hotYoga':
+        colors = ['#ff6b35', '#ff8c42', '#ffa630', '#ff6b35', '#ff8c42'];
+        break;
+      default:
+        // generic workout complete (pink celebration)
+        colors = ['#ec4899', '#f472b6', '#fb7185', '#fbcfe8', '#ffd700'];
+    }
+
+    const newConfetti = Array.from({ length: count }).map((_, i) => ({
+      id: i,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      left: `${Math.random() * 100}%`,
+      animationDuration: `${Math.random() * 3 + 2}s`,
+      delay: `${Math.random() * 0.5}s`
+    }));
+    setConfetti(newConfetti);
+  };
+
   // Star System State
   const [stars, setStars] = useState<{ gold: number, silver: number }>({ gold: 0, silver: 0 });
   const [purchasedReward, setPurchasedReward] = useState<Reward | null>(null);
@@ -344,15 +377,8 @@ export default function BekahBuilder() {
 
   useEffect(() => {
     if (showCompletionScreen) {
-      const colors = ['#ec4899', '#f472b6', '#fb7185', '#fbcfe8', '#ffd700'];
-      const newConfetti = Array.from({ length: 50 }).map((_, i) => ({
-        id: i,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        left: `${Math.random() * 100}%`,
-        animationDuration: `${Math.random() * 3 + 2}s`,
-        delay: `${Math.random() * 0.5}s`
-      }));
-      setConfetti(newConfetti);
+      // Workout completion confetti
+      spawnConfetti('workout');
 
       localStorage.removeItem('bekah-builder-active-session');
       setHasActiveSession(false);
@@ -825,16 +851,8 @@ export default function BekahBuilder() {
       setPurchasedReward(reward);
       setShowRewardPurchaseScreen(true);
 
-      // Confetti
-      const colors = ['#ffd700', '#ffed4e', '#ffc700', '#f4c430', '#ffe135'];
-      const newConfetti = Array.from({ length: 80 }).map((_, i) => ({
-        id: i,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        left: `${Math.random() * 100}%`,
-        animationDuration: `${Math.random() * 3 + 2}s`,
-        delay: `${Math.random() * 0.5}s`
-      }));
-      setConfetti(newConfetti);
+      // Shop purchase confetti (gold)
+      spawnConfetti('shop');
     } else {
       alert(`You need ${reward.cost - points} more points!`);
     }
@@ -888,6 +906,8 @@ export default function BekahBuilder() {
       silver: Math.max(0, prev.silver + netSilver)
     }));
     setShowRestDayDialog(false);
+    // Blue confetti for rest day
+    spawnConfetti('rest');
     setShowRestDayComplete(true);
   };
 
@@ -937,16 +957,8 @@ export default function BekahBuilder() {
     setShowHotYogaDialog(false);
     setShowHotYogaComplete(true);
 
-    // Flame emoji animation
-    const colors = ['#ff6b35', '#ff8c42', '#ffa630', '#ff6b35', '#ff8c42'];
-    const newConfetti = Array.from({ length: 60 }).map((_, i) => ({
-      id: i,
-      color: colors[Math.floor(Math.random() * colors.length)],
-      left: `${Math.random() * 100}%`,
-      animationDuration: `${Math.random() * 2 + 1.5}s`,
-      delay: `${Math.random() * 0.3}s`
-    }));
-    setConfetti(newConfetti);
+    // Hot yoga confetti
+    spawnConfetti('hotYoga');
   };
 
   const devAddStars = () => {
@@ -1198,8 +1210,8 @@ export default function BekahBuilder() {
       silver: Math.max(0, prev.silver + netSilver)
     }));
 
-    // small confetti
-    setConfetti([{ id: Date.now(), color: '#FFB3C7', left: '30%', animationDuration: '1.2s', delay: '0s' }]);
+    // Green confetti for custom workout
+    spawnConfetti('custom');
 
     setShowCustomDialog(false);
     setCustomText('');
@@ -1210,6 +1222,18 @@ export default function BekahBuilder() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
         <style>{styles}</style>
+        {confetti.map(c => (
+          <div
+            key={c.id}
+            className="confetti"
+            style={{
+              backgroundColor: c.color,
+              left: c.left,
+              animationDuration: c.animationDuration,
+              animationDelay: c.delay
+            }}
+          />
+        ))}
         <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
           <div className="text-8xl mb-4 animate-bounce">🎉</div>
           <h1 className="text-4xl font-bold text-pink-600 mb-2">Workout Complete!</h1>
@@ -1218,6 +1242,7 @@ export default function BekahBuilder() {
           <button
             onClick={() => {
               setShowCompletionScreen(false);
+              setConfetti([]);
               setScreen('home');
             }}
             className="bg-pink-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-pink-600 active:scale-95 transition-all w-full"
@@ -1273,6 +1298,19 @@ export default function BekahBuilder() {
     if (showRestDayComplete) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
+          <style>{styles}</style>
+          {confetti.map(c => (
+            <div
+              key={c.id}
+              className="confetti"
+              style={{
+                backgroundColor: c.color,
+                left: c.left,
+                animationDuration: c.animationDuration,
+                animationDelay: c.delay
+              }}
+            />
+          ))}
           <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
             <Moon className="mx-auto mb-4 text-blue-400" size={80} />
             <h1 className="text-4xl font-bold text-blue-600 mb-2">Rest Day Logged!</h1>
@@ -1282,6 +1320,7 @@ export default function BekahBuilder() {
             <button
               onClick={() => {
                 setShowRestDayComplete(false);
+                setConfetti([]);
               }}
               className="bg-blue-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-blue-600 active:scale-95 transition-all w-full"
             >
@@ -1295,6 +1334,19 @@ export default function BekahBuilder() {
     if (showCustomComplete) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
+          <style>{styles}</style>
+          {confetti.map(c => (
+            <div
+              key={c.id}
+              className="confetti"
+              style={{
+                backgroundColor: c.color,
+                left: c.left,
+                animationDuration: c.animationDuration,
+                animationDelay: c.delay
+              }}
+            />
+          ))}
           <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
             <Dumbbell className="mx-auto mb-4 text-green-400" size={80} />
             <h1 className="text-4xl font-bold text-green-600 mb-2">Custom Workout Logged!</h1>
@@ -1304,6 +1356,7 @@ export default function BekahBuilder() {
             <button
               onClick={() => {
                 setShowCustomComplete(false);
+                setConfetti([]);
               }}
               className="bg-green-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-600 active:scale-95 transition-all w-full"
             >
@@ -1489,7 +1542,7 @@ export default function BekahBuilder() {
         {showCustomDialog && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
-              <FileText className="text-green-400 mx-auto mb-4" size={56} />
+                <Dumbbell className="text-green-400 mx-auto mb-4" size={56} />
               <h3 className="text-2xl font-bold text-gray-800 mb-3">Custom Workout</h3>
               <p className="text-gray-600 mb-2">Log a custom workout for today?</p>
               <p className="text-xs text-gray-500 mb-4">(this will overwrite any previous workout for today)</p>
@@ -2673,6 +2726,19 @@ export default function BekahBuilder() {
         {/* Reward Purchase Screen */}
         {showRewardPurchaseScreen && purchasedReward && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-auto">
+            <style>{styles}</style>
+            {confetti.map(c => (
+              <div
+                key={c.id}
+                className="confetti"
+                style={{
+                  backgroundColor: c.color,
+                  left: c.left,
+                  animationDuration: c.animationDuration,
+                  animationDelay: c.delay
+                }}
+              />
+            ))}
             <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center my-auto">
               <div className="text-7xl mb-4 animate-bounce">🎉</div>
               <h3 className="text-2xl font-bold text-gray-800 mb-2">Reward Redeemed!</h3>
