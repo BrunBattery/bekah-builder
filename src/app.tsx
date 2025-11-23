@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift } from 'lucide-react';
+import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift, Flame, Moon, FileText, PenTool } from 'lucide-react';
 
 // --- Types ---
 
@@ -129,11 +129,11 @@ interface Reward {
 }
 
 const REWARDS: Reward[] = [
-  { id: 'kiss', name: 'Kiss', cost: 3, description: "A kiss from steve 💋" },
-  { id: 'snuggle', name: 'Snuggle Session', cost: 6, description: '30 mins of snuggles 🤗' },
-  { id: 'massage', name: 'Massage', cost: 12, description: "A relaxing massage from Steve's callused hands" },
-  { id: 'can-i-sing', name: 'Can I Sing For You?', cost: 15, description: 'Get a serenade of the song of your choice from Steve 🎶' },
-  { id: 'movie', name: 'Movie Pick', cost: 9, description: "You pick the movie tonight (wonder how far we'll make it through?)" },
+  { id: 'kiss', name: 'A Kiss', cost: 3, description: "A kiss from Steve 💋" },
+  { id: 'snuggle', name: 'Snuggle Session', cost: 9, description: 'A relaxing snuggle session, big sighs included 🤗' },
+  { id: 'massage', name: 'Massage', cost: 12, description: "A relaxing massage from Steve's callused hands 💪" },
+  { id: 'can-i-sing', name: 'Can I Sing For You?', cost: 15, description: 'Your choice of song for a beautiful serenade from Steve 🎵' },
+  { id: 'driving', name: 'Driving Lessons', cost: 60, description: 'Try your best to keep your eyes open 👀' },
   { id: 'date', name: 'Date Night', cost: 45, description: 'A special date of your choice 🌹' }
 ];
 
@@ -244,6 +244,7 @@ export default function BekahBuilder() {
   const [showRestDayDialog, setShowRestDayDialog] = useState(false);
   const [showRestDayComplete, setShowRestDayComplete] = useState(false);
   const [showHotYogaComplete, setShowHotYogaComplete] = useState(false);
+  const [showCustomComplete, setShowCustomComplete] = useState(false);
   const [showBackupReminder, setShowBackupReminder] = useState(false);
 
   // --- Effects ---
@@ -1204,6 +1205,7 @@ const deleteWorkout = (date: Date) => {
 
     setShowCustomDialog(false);
     setCustomText('');
+    setShowCustomComplete(true);
   };
 
   if (showCompletionScreen) {
@@ -1251,7 +1253,7 @@ const deleteWorkout = (date: Date) => {
             />
           ))}
           <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
-            <div className="text-8xl mb-4 animate-bounce">🔥</div>
+            <Flame className="mx-auto mb-4 animate-bounce text-orange-400" size={80} />
             <h1 className="text-4xl font-bold text-orange-600 mb-2">Hot Yoga Complete!</h1>
             <p className="text-xl text-orange-500 mb-2">You're on fire! 🌟</p>
             <p className="text-sm text-gray-600 mb-8">Gold star added to your collection!</p>
@@ -1274,7 +1276,7 @@ const deleteWorkout = (date: Date) => {
       return (
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
           <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
-            <div className="text-8xl mb-4">😴</div>
+            <Moon className="mx-auto mb-4 text-blue-400" size={80} />
             <h1 className="text-4xl font-bold text-blue-600 mb-2">Rest Day Logged!</h1>
             <p className="text-xl text-blue-500 mb-2">Recovery is important too! 💙</p>
             <p className="text-sm text-gray-600 mb-8">Silver star added to your collection!</p>
@@ -1284,6 +1286,28 @@ const deleteWorkout = (date: Date) => {
                 setShowRestDayComplete(false);
               }}
               className="bg-blue-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-blue-600 active:scale-95 transition-all w-full"
+            >
+              Back to Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (showCustomComplete) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
+          <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
+            <Dumbbell className="mx-auto mb-4 text-green-400" size={80} />
+            <h1 className="text-4xl font-bold text-green-600 mb-2">Custom Workout Logged!</h1>
+            <p className="text-xl text-green-500 mb-2">You crushed it! 💪</p>
+            <p className="text-sm text-gray-600 mb-8">Gold star added to your collection!</p>
+            
+            <button
+              onClick={() => {
+                setShowCustomComplete(false);
+              }}
+              className="bg-green-500 text-white rounded-xl px-8 py-4 font-bold text-lg shadow-lg hover:bg-green-600 active:scale-95 transition-all w-full"
             >
               Back to Home
             </button>
@@ -1362,39 +1386,39 @@ const deleteWorkout = (date: Date) => {
           <div className="grid grid-cols-3 gap-3 mb-8">
             <button
               onClick={() => setShowHotYogaDialog(true)}
-              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-2"
             >
-              <div className="bg-orange-50 p-2 rounded-lg group-hover:bg-orange-100 transition-colors">
-                <span className="text-2xl">🔥</span>
+              <div className="bg-orange-100 rounded-full p-3">
+                <Flame className="text-orange-400" size={24} />
               </div>
               <div className="text-center">
-                <h3 className="text-sm font-bold text-orange-600 group-hover:text-orange-700 transition-colors">
+                <h3 className="text-sm font-bold text-orange-600 hover:text-orange-700 transition-colors">
                   Hot Yoga
                 </h3>
               </div>
             </button>
             <button
               onClick={addRestDay}
-              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-2"
             >
-              <div className="bg-blue-50 p-2 rounded-lg group-hover:bg-blue-100 transition-colors">
-                <div className="text-2xl">😴</div>
+              <div className="bg-blue-100 rounded-full p-3">
+                <Moon className="text-blue-400" size={24} />
               </div>
               <div className="text-center">
-                <h3 className="text-sm font-bold text-blue-600 group-hover:text-blue-700 transition-colors">
+                <h3 className="text-sm font-bold text-blue-600 hover:text-blue-700 transition-colors">
                   Rest Day
                 </h3>
               </div>
             </button>
             <button
               onClick={() => setShowCustomDialog(true)}
-              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 group flex flex-col items-center justify-center gap-2"
+              className="bg-white rounded-xl p-4 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-2"
             >
-              <div className="bg-green-50 p-2 rounded-lg group-hover:bg-green-100 transition-colors">
-                <span className="text-2xl">✍️</span>
+              <div className="bg-green-100 rounded-full p-3">
+                <Dumbbell className="text-green-400" size={24} />
               </div>
               <div className="text-center">
-                <h3 className="text-sm font-bold text-green-600 group-hover:text-green-700 transition-colors">
+                <h3 className="text-sm font-bold text-green-600 hover:text-green-700 transition-colors">
                   Custom
                 </h3>
               </div>
@@ -1427,7 +1451,7 @@ const deleteWorkout = (date: Date) => {
               onClick={() => setScreen('export')}
               className="bg-white rounded-xl p-3 shadow-md hover:shadow-lg transition-all active:scale-95 flex flex-col items-center justify-center gap-1"
             >
-              <Save className="text-blue-400" size={20} />
+              <Save className="text-red-400" size={20} />
               <p className="text-xs font-semibold text-gray-700">Data</p>
             </button>
           </div>
@@ -1441,7 +1465,7 @@ const deleteWorkout = (date: Date) => {
         {showHotYogaDialog && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
-              <div className="text-6xl mb-4 animate-bounce">🔥</div>
+              <Flame className="text-orange-400 mx-auto mb-4 animate-bounce" size={56} />
               <h3 className="text-2xl font-bold text-gray-800 mb-3">Hot Yoga</h3>
               <p className="text-gray-600 mb-2">Log a hot yoga session for today?</p>
               <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
@@ -1456,7 +1480,7 @@ const deleteWorkout = (date: Date) => {
                   onClick={confirmHotYoga}
                   className="flex-1 bg-orange-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-600"
                 >
-                  Yes! 🔥
+                  Yes!
                 </button>
               </div>
             </div>
@@ -1467,7 +1491,7 @@ const deleteWorkout = (date: Date) => {
           {showCustomDialog && (
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
-                <div className="text-6xl mb-4">✍️</div>
+                <FileText className="text-green-400 mx-auto mb-4" size={56} />
                 <h3 className="text-2xl font-bold text-gray-800 mb-3">Custom Workout</h3>
                 <p className="text-gray-600 mb-2">Log a custom workout for today?</p>
                 <p className="text-xs text-gray-500 mb-4">(this will overwrite any previous workout for today)</p>
@@ -1489,7 +1513,7 @@ const deleteWorkout = (date: Date) => {
                     disabled={!customText.trim()}
                     className="flex-1 bg-green-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600"
                   >
-                    Yes! ✍️
+                    Yes!
                   </button>
                 </div>
               </div>
@@ -1554,7 +1578,7 @@ const deleteWorkout = (date: Date) => {
         {showRestDayDialog && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
-              <div className="text-6xl mb-4">😴</div>
+              <Moon className="text-blue-400 mx-auto mb-4" size={56} />
               <h3 className="text-2xl font-bold text-gray-800 mb-3">Rest Day</h3>
               <p className="text-gray-600 mb-2">Log a rest day for today?</p>
               <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
@@ -1569,7 +1593,7 @@ const deleteWorkout = (date: Date) => {
                   onClick={confirmRestDay}
                   className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
                 >
-                  Yes! 😴
+                  Yes!
                 </button>
               </div>
             </div>
@@ -1911,21 +1935,61 @@ const deleteWorkout = (date: Date) => {
                         <div className="flex items-center justify-between gap-3">
                             {/* Left Side (Ex 1) */}
                             <div className={`flex-1 text-center p-3 rounded-xl transition-all ${!exercise.isSuperset ? 'bg-white shadow-md ring-2 ring-pink-200 scale-105 z-10' : 'opacity-60 grayscale-[0.5]'}`}>
-                                <p className={`font-bold text-gray-800 leading-tight ${!exercise.isSuperset ? 'text-lg' : 'text-sm'}`}>
-                                    {exercise.isSuperset ? supersetPartnerName : exercise.name}
-                                </p>
+                                <div className="flex items-center justify-center gap-2">
+                                  <p className={`font-bold text-gray-800 leading-tight ${!exercise.isSuperset ? 'text-lg' : 'text-sm'}`}>
+                                      {exercise.isSuperset ? supersetPartnerName : exercise.name}
+                                  </p>
+                                  {!exercise.isSuperset && (
+                                    <button
+                                      onClick={() => {
+                                        setShowNotesEditor(true);
+                                        setCurrentNoteExercise(exercise.isSuperset ? supersetPartnerName : exercise.name);
+                                      }}
+                                      className="hover:bg-pink-100 p-1.5 rounded transition-colors"
+                                      title="Add notes"
+                                    >
+                                      <PenTool size={16} className="text-blue-600" />
+                                    </button>
+                                  )}
+                                </div>
                             </div>
                             <div className="text-pink-300 font-bold text-xl">➜</div>
                             {/* Right Side (Ex 2) */}
                             <div className={`flex-1 text-center p-3 rounded-xl transition-all ${exercise.isSuperset ? 'bg-white shadow-md ring-2 ring-pink-200 scale-105 z-10' : 'opacity-60 grayscale-[0.5]'}`}>
-                                <p className={`font-bold text-gray-800 leading-tight ${exercise.isSuperset ? 'text-lg' : 'text-sm'}`}>
-                                    {exercise.isSuperset ? exercise.name : supersetPartnerName}
-                                </p>
+                                <div className="flex items-center justify-center gap-2">
+                                  <p className={`font-bold text-gray-800 leading-tight ${exercise.isSuperset ? 'text-lg' : 'text-sm'}`}>
+                                      {exercise.isSuperset ? exercise.name : supersetPartnerName}
+                                  </p>
+                                  {exercise.isSuperset && (
+                                    <button
+                                      onClick={() => {
+                                        setShowNotesEditor(true);
+                                        setCurrentNoteExercise(exercise.name);
+                                      }}
+                                      className="hover:bg-pink-100 p-1.5 rounded transition-colors"
+                                      title="Add notes"
+                                    >
+                                      <PenTool size={16} className="text-blue-600" />
+                                    </button>
+                                  )}
+                                </div>
                             </div>
                         </div>
                     </div>
                 ) : (
-                    <h2 className="text-2xl font-bold text-pink-600 leading-tight text-center mb-1">{exercise.name}</h2>
+                    <div className="flex items-center justify-center gap-2">
+                      <h2 className="text-2xl font-bold text-pink-600 leading-tight text-center mb-1">{exercise.name}</h2>
+                      <button
+                        onClick={() => {
+                          setShowNotesEditor(true);
+                          setCurrentNoteExercise(exercise.name);
+                        }}
+                        className="hover:bg-pink-100 p-2 rounded transition-colors mt-1"
+                        title="Add notes"
+                      >
+                        <PenTool size={18} className="text-blue-600" />
+                      </button>
+                    </div>
                 )}
             </div>
             
@@ -1963,8 +2027,9 @@ const deleteWorkout = (date: Date) => {
                   ))}
                 </div>
                 {exerciseNotes[exercise.name] && (
-                  <div className="text-xs text-blue-700 italic mt-2 pt-2 border-t border-blue-100">
-                    📝 {exerciseNotes[exercise.name]}
+                  <div className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-100 flex items-center gap-2">
+                    <PenTool size={14} className="text-blue-600 shrink-0" />
+                    <span>{exerciseNotes[exercise.name]}</span>
                   </div>
                 )}
               </div>
@@ -2065,16 +2130,6 @@ const deleteWorkout = (date: Date) => {
               <Check size={24} strokeWidth={3} />
               Log Set
             </button>
-
-            <button
-              onClick={() => {
-                setShowNotesEditor(true);
-                setCurrentNoteExercise(exercise.name);
-              }}
-              className="w-full bg-blue-50 text-blue-700 rounded-xl p-3 font-semibold text-sm shadow-sm hover:bg-blue-100 transition-all active:scale-95"
-            >
-              📝 Add Notes for {exercise.name}
-            </button>
           </div>
 
           {/* Simple Affirmation Text */}
@@ -2087,7 +2142,7 @@ const deleteWorkout = (date: Date) => {
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
                 <h3 className="text-xl font-bold text-gray-800 mb-3">Notes for {currentNoteExercise}</h3>
-                <p className="text-xs text-gray-500 mb-3">Form tips, feet placement, feedback, etc.</p>
+                <p className="text-xs text-gray-500 mb-3">Form cues, seat settings, feet placement or general notes</p>
                 <textarea
                   value={exerciseNotes[currentNoteExercise] || ''}
                   onChange={(e) => setExerciseNotes({...exerciseNotes, [currentNoteExercise]: e.target.value})}
@@ -2351,8 +2406,9 @@ const deleteWorkout = (date: Date) => {
                             </div>
                         {/* show independent exercise note if present */}
                         {exerciseNotes[name] && (
-                          <div className="text-xs text-gray-500 italic p-2 bg-blue-50 rounded mt-1 ml-2 mb-2">
-                            📝 {exerciseNotes[name]}
+                          <div className="text-xs text-gray-500 p-2 bg-blue-50 rounded mt-1 ml-2 mb-2 flex items-center gap-2">
+                            <PenTool size={14} className="text-blue-600 shrink-0" />
+                            <span>{exerciseNotes[name]}</span>
                           </div>
                         )}
                         <div className={`mt-2 space-y-1 transition-all overflow-hidden ${expandedExercises[name] === false ? 'max-h-0' : 'max-h-96'}`}>
@@ -2566,8 +2622,8 @@ const deleteWorkout = (date: Date) => {
           </button>
 
           <div className="text-center mb-6">
-            <span className="text-5xl">🎁</span>
-            <h2 className="text-2xl font-bold text-pink-600 mt-2">Reward Shop</h2>
+            <Gift className="text-purple-400 mx-auto mb-2" size={48} />
+            <h2 className="text-2xl font-bold text-pink-600">Reward Shop</h2>
             <div className="mt-4 flex gap-3 justify-center items-center">
               <div className="bg-white rounded-lg px-3 py-2 shadow-md inline-flex items-center gap-2">
                 <span className="text-2xl">⭐</span>
