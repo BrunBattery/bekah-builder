@@ -9,9 +9,10 @@ interface ExerciseDef {
   repRange: string;
   note?: string;
   bodyweight?: boolean | null;
-  options?: string[];
+  options?: Array<string | { name: string; repRange?: string; bodyweight?: boolean | null }>;
   superset?: string; // Name of the exercise paired with
   isSuperset?: boolean; // True if this is the SECOND part of a superset
+  stopwatch?: boolean; // true for exercises measured by duration (e.g., Dead Hangs)
 }
 
 interface WorkoutDef {
@@ -27,6 +28,7 @@ interface SetLog {
   reps: number;
   timestamp: string;
   notes?: string;
+  durationSeconds?: number;
 }
 
 interface WorkoutSession {
@@ -53,13 +55,14 @@ const WORKOUTS: Record<string, WorkoutDef> = {
         sets: 3,
         repRange: '8-12',
         options: ['Push-ups', 'DB Bench'],
-        superset: 'EZ Bar Curls',
+        superset: 'EZ Bar Curls/Dumbbell Curls',
         bodyweight: null
       },
-      { name: 'EZ Bar Curls', sets: 3, repRange: '8-12', isSuperset: true, bodyweight: false },
-      { name: 'Bulgarian Split Squats', sets: 3, repRange: '8-12', note: 'Each leg', superset: 'Calf Raises', bodyweight: false },
-      { name: 'Calf Raises', sets: 3, repRange: '10-15', isSuperset: true, bodyweight: false },
-      { name: 'Abs', sets: 3, repRange: '12-15', note: 'Machine/crunches/your choice', bodyweight: true }
+      { name: 'EZ Bar Curls/Dumbbell Curls', sets: 3, repRange: '8-12', options: [{ name: 'EZ Bar Curls', repRange: '8-12' }, { name: 'Dumbbell Curls', repRange: '8-12' }], isSuperset: true, bodyweight: false },
+      { name: 'Bulgarian Split Squats', sets: 3, repRange: '8-12', note: 'Each leg', superset: 'Abs', bodyweight: false },
+      { name: 'Abs', sets: 3, repRange: 'AMRAP', isSuperset: true, bodyweight: true },
+      { name: 'Machine Kickbacks', sets: 3, repRange: '12-20', superset: 'Seated Cable Row/Machine Row', bodyweight: false },
+      { name: 'Seated Cable Row/Machine Row', sets: 3, repRange: '10-15', options: [{ name: 'Seated Cable Row', repRange: '10-15' }, { name: 'Machine Row', repRange: '8-12' }], isSuperset: true, bodyweight: false }
     ]
   },
   B: {
@@ -78,7 +81,8 @@ const WORKOUTS: Record<string, WorkoutDef> = {
       { name: 'Lateral Raises', sets: 3, repRange: '12-15', isSuperset: true, bodyweight: false },
       { name: 'Hip Thrusts', sets: 3, repRange: '12-15', superset: 'Triceps Pushdowns', bodyweight: false },
       { name: 'Triceps Pushdowns', sets: 3, repRange: '10-15', isSuperset: true, bodyweight: false },
-      { name: 'Calf Raises', sets: 3, repRange: '10-15', bodyweight: false }
+      { name: 'Calf Raises', sets: 3, repRange: '10-15', superset: 'Dead Hangs', bodyweight: false },
+      { name: 'Dead Hangs', sets: 3, repRange: 'failure', isSuperset: true, stopwatch: true, bodyweight: true }
     ]
   },
   C: {
@@ -86,8 +90,8 @@ const WORKOUTS: Record<string, WorkoutDef> = {
     focus: 'Knee Flexion / Press',
     exercises: [
       { name: 'Leg Press', sets: 5, repRange: '8-12', bodyweight: false },
-      { name: 'DB OHP', sets: 3, repRange: '6-10', superset: 'Machine Row', bodyweight: false },
-      { name: 'Machine Row', sets: 3, repRange: '8-12', isSuperset: true, bodyweight: false },
+      { name: 'DB OHP', sets: 3, repRange: '6-10', superset: 'Machine Row/Seated Cable Row', bodyweight: false },
+      { name: 'Machine Row/Seated Cable Row', sets: 3, repRange: '8-15', options: [{ name: 'Seated Cable Row', repRange: '10-15' }, { name: 'Machine Row', repRange: '8-12' }], isSuperset: true, bodyweight: false },
       {
         name: 'DB Bench/Push-ups',
         sets: 3,
@@ -97,7 +101,8 @@ const WORKOUTS: Record<string, WorkoutDef> = {
         bodyweight: null
       },
       { name: 'Back Extensions', sets: 3, repRange: '12-15', note: 'Glute-focused', isSuperset: true, bodyweight: false },
-      { name: 'Calf Raises', sets: 3, repRange: '10-15', bodyweight: false }
+      { name: 'Leg Curls', sets: 3, repRange: '10-15', superset: 'Machine Kickbacks', bodyweight: false },
+      { name: 'Machine Kickbacks', sets: 3, repRange: '12-20', isSuperset: true, bodyweight: false }
     ]
   }
 };
@@ -200,6 +205,13 @@ export default function BekahBuilder() {
   const [showRestChoice, setShowRestChoice] = useState(false);
   const [suggestedRestTime, setSuggestedRestTime] = useState(120);
   const timerEndRef = useRef<number | null>(null);
+  // Dead hang / stopwatch state for exercises that record duration instead of reps/weight (milliseconds)
+  const [deadHangActive, setDeadHangActive] = useState(false);
+  const [deadHangPaused, setDeadHangPaused] = useState(false);
+  const [deadHangMs, setDeadHangMs] = useState(0);
+  const deadHangIntervalRef = useRef<number | null>(null);
+  const deadHangStartRef = useRef<number | null>(null);
+  const deadHangAccumRef = useRef<number>(0);
 
   // UI State
   const [encouragement, setEncouragement] = useState('');
@@ -460,7 +472,8 @@ export default function BekahBuilder() {
     workout.exercises.forEach(ex => {
       if (ex.options && ex.options.length > 0) {
         if (!exerciseChoices[ex.name]) {
-          defaults[ex.name] = ex.options[0];
+          const first = ex.options[0];
+          defaults[ex.name] = typeof first === 'string' ? first : (first as any).name;
         }
       }
     });
@@ -530,18 +543,29 @@ export default function BekahBuilder() {
 
   const getEffectiveExercise = (exercise: ExerciseDef) => {
     if (exercise.options && exerciseChoices[exercise.name]) {
-      const chosenOption = exerciseChoices[exercise.name];
-      const isAssisted = chosenOption.toLowerCase().includes('assisted');
+      const chosenOptionName = exerciseChoices[exercise.name];
+      // find option entry (could be string or object)
+      const found = exercise.options.find(opt => typeof opt === 'string' ? opt === chosenOptionName : (opt as any).name === chosenOptionName) as any;
 
-      const isBodyweight = (chosenOption.toLowerCase().includes('push-up') ||
-        chosenOption.toLowerCase().includes('pullup') ||
-        chosenOption.toLowerCase().includes('pushups')) && !isAssisted;
+      const isAssisted = chosenOptionName.toLowerCase().includes('assisted');
 
-      return {
-        ...exercise,
-        name: chosenOption,
-        bodyweight: isBodyweight
-      };
+      let isBodyweight = (chosenOptionName.toLowerCase().includes('push-up') ||
+        chosenOptionName.toLowerCase().includes('pullup') ||
+        chosenOptionName.toLowerCase().includes('pushups')) && !isAssisted;
+
+      const merged: any = { ...exercise, name: chosenOptionName };
+      if (found && typeof found !== 'string') {
+        if (found.repRange) merged.repRange = found.repRange;
+        if (typeof found.bodyweight !== 'undefined') merged.bodyweight = found.bodyweight;
+      }
+
+      // override bodyweight detection if option indicates it
+      if (typeof merged.bodyweight !== 'undefined' && merged.bodyweight !== null) {
+        isBodyweight = !!merged.bodyweight;
+      }
+
+      merged.bodyweight = isBodyweight;
+      return merged as ExerciseDef;
     }
     return exercise;
   };
@@ -551,6 +575,84 @@ export default function BekahBuilder() {
     const workout = WORKOUTS[selectedWorkout];
     const exercise = getEffectiveExercise(workout.exercises[currentExerciseIdx]);
 
+    // Support stopwatch-based exercises (e.g., Dead Hangs)
+    if (exercise.stopwatch) {
+      // require a measured duration (use deadHangMs)
+      const durationMs = deadHangMs;
+      if (!durationMs || durationMs <= 0) return;
+
+      const setData: SetLog = {
+        exercise: exercise.name,
+        set: currentSetIdx + 1,
+        weight: 0,
+        reps: 0,
+        durationSeconds: durationMs / 1000,
+        timestamp: new Date().toISOString(),
+      };
+
+      const newSessionData = [...sessionData, setData];
+      setSessionData(newSessionData);
+
+      // reset dead hang timer state and refs
+      if (deadHangIntervalRef.current) {
+        clearInterval(deadHangIntervalRef.current as any);
+        deadHangIntervalRef.current = null;
+      }
+      deadHangStartRef.current = null;
+      deadHangAccumRef.current = 0;
+      setDeadHangActive(false);
+      setDeadHangPaused(false);
+      setDeadHangMs(0);
+
+      // advance navigation same as below
+      let nextExIdx = currentExerciseIdx;
+      let nextSetIdx = currentSetIdx;
+      let restTime = 120;
+
+      const isSupersetPair1 = exercise.superset && !exercise.isSuperset;
+      const isSupersetPair2 = exercise.isSuperset;
+
+      if (isSupersetPair1) {
+        nextExIdx = currentExerciseIdx + 1;
+        nextSetIdx = currentSetIdx;
+        restTime = 60;
+      } else if (isSupersetPair2) {
+        if (currentSetIdx + 1 < exercise.sets) {
+          nextExIdx = currentExerciseIdx - 1;
+          nextSetIdx = currentSetIdx + 1;
+          restTime = 120;
+        } else {
+          nextExIdx = currentExerciseIdx + 1;
+          nextSetIdx = 0;
+          restTime = 120;
+        }
+      } else {
+        if (currentSetIdx + 1 < exercise.sets) {
+          nextExIdx = currentExerciseIdx;
+          nextSetIdx = currentSetIdx + 1;
+
+          if (currentExerciseIdx === 0) restTime = 180;
+          else restTime = 120;
+        } else {
+          nextExIdx = currentExerciseIdx + 1;
+          nextSetIdx = 0;
+          if (currentExerciseIdx === 0) restTime = 180;
+          else restTime = 120;
+        }
+      }
+
+      if (nextExIdx >= workout.exercises.length) {
+        finishWorkout(newSessionData);
+        return;
+      }
+
+      setPendingNav({ exIdx: nextExIdx, setIdx: nextSetIdx });
+      setSuggestedRestTime(restTime);
+      setShowRestChoice(true);
+      return;
+    }
+
+    // Standard weight/reps flow
     if ((!exercise.bodyweight && !weight) || !reps) return;
     if (parseInt(reps) < 0 || (!exercise.bodyweight && parseFloat(weight) < 0)) return;
 
@@ -643,8 +745,13 @@ export default function BekahBuilder() {
     const sessionSets = sessionData.filter(s => s.exercise === nextExercise.name);
     if (sessionSets.length > 0) {
       const lastSet = sessionSets[sessionSets.length - 1];
-      setWeight(lastSet.weight.toString());
-      setReps(lastSet.reps.toString());
+      if (lastSet.durationSeconds) {
+        setWeight('');
+        setReps('');
+      } else {
+        setWeight(lastSet.weight.toString());
+        setReps(lastSet.reps.toString());
+      }
     } else {
       loadExerciseData(workout, pendingNav.exIdx);
     }
@@ -690,6 +797,69 @@ export default function BekahBuilder() {
       setTimerActive(true);
     }
   }
+
+  // Dead hang stopwatch controls (millisecond-accurate, with pause)
+  const startDeadHang = () => {
+    // reset any previous state
+    if (deadHangIntervalRef.current) {
+      clearInterval(deadHangIntervalRef.current as any);
+      deadHangIntervalRef.current = null;
+    }
+    deadHangAccumRef.current = 0;
+    deadHangStartRef.current = Date.now();
+    setDeadHangMs(0);
+    setDeadHangActive(true);
+    setDeadHangPaused(false);
+    deadHangIntervalRef.current = window.setInterval(() => {
+      const start = deadHangStartRef.current || Date.now();
+      setDeadHangMs(deadHangAccumRef.current + (Date.now() - start));
+    }, 50);
+  };
+
+  const togglePauseDeadHang = () => {
+    if (deadHangActive) {
+      // pause
+      if (deadHangIntervalRef.current) {
+        clearInterval(deadHangIntervalRef.current as any);
+        deadHangIntervalRef.current = null;
+      }
+      const start = deadHangStartRef.current || Date.now();
+      deadHangAccumRef.current += (Date.now() - start);
+      deadHangStartRef.current = null;
+      setDeadHangActive(false);
+      setDeadHangPaused(true);
+    } else if (deadHangPaused) {
+      // resume
+      deadHangStartRef.current = Date.now();
+      setDeadHangActive(true);
+      setDeadHangPaused(false);
+      deadHangIntervalRef.current = window.setInterval(() => {
+        const start = deadHangStartRef.current || Date.now();
+        setDeadHangMs(deadHangAccumRef.current + (Date.now() - start));
+      }, 50);
+    }
+  };
+
+  const stopDeadHang = () => {
+    if (deadHangIntervalRef.current) {
+      clearInterval(deadHangIntervalRef.current as any);
+      deadHangIntervalRef.current = null;
+    }
+    // compute final ms
+    let finalMs = deadHangAccumRef.current;
+    if (deadHangStartRef.current) finalMs += (Date.now() - deadHangStartRef.current);
+    deadHangStartRef.current = null;
+    deadHangAccumRef.current = 0;
+    setDeadHangMs(finalMs);
+    setDeadHangActive(false);
+    setDeadHangPaused(false);
+    // Log the set using the duration captured (in ms)
+    // pass duration to logSet via closure by setting state first, then calling
+    // ensure we call logSet after state update - use setTimeout 0 to let state flush
+    setTimeout(() => {
+      logSet();
+    }, 0);
+  };
 
   const finishWorkout = (finalSessionData: SetLog[]) => {
     if (!selectedWorkout) return;
@@ -820,6 +990,14 @@ export default function BekahBuilder() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatTimeMs = (ms: number) => {
+    const totalMs = Math.max(0, Math.round(ms));
+    const mins = Math.floor(totalMs / 60000);
+    const secs = Math.floor((totalMs % 60000) / 1000);
+    const centis = Math.floor((totalMs % 1000) / 10);
+    return `${mins}:${secs.toString().padStart(2, '0')}.${centis.toString().padStart(2, '0')}`;
   };
 
   const getRepRangeColor = (currentReps: string, repRange: string) => {
@@ -1094,7 +1272,7 @@ export default function BekahBuilder() {
                       <div className={`w-1.5 h-1.5 rounded-full ${ex.isSuperset ? 'bg-pink-300' : 'bg-pink-500'}`}></div>
                       <span>{effective.name}</span>
                       <span className="text-gray-400 text-xs">
-                        ({ex.sets} × {effective.bodyweight ? 'AMRAP' : ex.repRange})
+                        ({ex.sets} × {effective.bodyweight ? 'AMRAP' : effective.repRange})
                       </span>
                     </div>
                   );
@@ -1110,18 +1288,21 @@ export default function BekahBuilder() {
                   <div key={idx} className="mb-4 last:mb-0">
                     <p className="text-sm font-semibold text-gray-700 mb-2">{exercise.name}:</p>
                     <div className="grid grid-cols-2 gap-2">
-                      {exercise.options?.map(option => (
-                        <button
-                          key={option}
-                          onClick={() => setExerciseChoices({ ...exerciseChoices, [exercise.name]: option })}
-                          className={`p-3 rounded-lg border-2 transition-all text-sm ${exerciseChoices[exercise.name] === option
-                              ? 'border-pink-500 bg-pink-50 text-pink-700 font-semibold'
-                              : 'border-gray-200 bg-white text-gray-700'
-                            }`}
-                        >
-                          {option}
-                        </button>
-                      ))}
+                      {exercise.options?.map(opt => {
+                        const optionName = typeof opt === 'string' ? opt : (opt as any).name;
+                        return (
+                          <button
+                            key={optionName}
+                            onClick={() => setExerciseChoices({ ...exerciseChoices, [exercise.name]: optionName })}
+                            className={`p-3 rounded-lg border-2 transition-all text-sm ${exerciseChoices[exercise.name] === optionName
+                                ? 'border-pink-500 bg-pink-50 text-pink-700 font-semibold'
+                                : 'border-gray-200 bg-white text-gray-700'
+                              }`}
+                          >
+                            {optionName}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
@@ -1748,7 +1929,9 @@ export default function BekahBuilder() {
     let supersetPartnerName = '';
     let isSupersetActive = false;
     if (exercise.superset && !exercise.isSuperset) {
-      supersetPartnerName = exercise.superset;
+      // find partner exercise object to resolve selected option name
+      const partnerEx = workout.exercises.find(e => e.name === exercise.superset);
+      supersetPartnerName = partnerEx ? getEffectiveExercise(partnerEx).name : exercise.superset;
       isSupersetActive = true;
     } else if (exercise.isSuperset) {
       const prevEx = getEffectiveExercise(workout.exercises[currentExerciseIdx - 1]);
@@ -2072,7 +2255,7 @@ export default function BekahBuilder() {
                 <div className="flex gap-2 overflow-x-auto pb-1 mb-2">
                   {lastPerformance.map((set, idx) => (
                     <div key={idx} className="bg-white rounded px-2 py-1 text-xs font-mono text-blue-800 border border-blue-100 whitespace-nowrap">
-                      {set.weight > 0 ? `${set.weight}lb × ` : ''}{set.reps}
+                      {set.durationSeconds ? formatTimeMs(Math.round(set.durationSeconds * 1000)) : `${set.weight > 0 ? `${set.weight}lb × ` : ''}${set.reps}`}
                     </div>
                   ))}
                 </div>
@@ -2085,101 +2268,128 @@ export default function BekahBuilder() {
               </div>
             )}
 
-            {/* Inputs */}
-            <div className={`${exercise.bodyweight ? '' : 'grid grid-cols-2 gap-6'} mb-6`}>
-              {!exercise.bodyweight && (
-                <div className="flex flex-col items-center">
-                  <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">Weight (lbs)</label>
-                  <div className="flex items-center gap-1 max-w-[140px]">
-                    <button
-                      onClick={() => setWeight(w => Math.max(0, (parseFloat(w) || 0) - 5).toString())}
-                      className="bg-pink-100 hover:bg-pink-200 rounded-lg w-8 h-10 flex items-center justify-center active:scale-95 transition-all shrink-0"
-                    >
-                      <Minus size={16} className="text-pink-600" />
-                    </button>
-                    <input
-                      type="number"
-                      value={weight}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value);
-                        if (val >= 0 || e.target.value === '') {
-                          setWeight(e.target.value);
-                        }
-                      }}
-                      min="0"
-                      step="2.5"
-                      className="w-full h-10 border-2 border-pink-100 rounded-lg text-center text-lg font-bold text-gray-800 focus:border-pink-400 outline-none"
-                      placeholder="0"
-                    />
-                    <button
-                      onClick={() => setWeight(w => ((parseFloat(w) || 0) + 5).toString())}
-                      className="bg-pink-100 hover:bg-pink-200 rounded-lg w-8 h-10 flex items-center justify-center active:scale-95 transition-all shrink-0"
-                    >
-                      <Plus size={16} className="text-pink-600" />
-                    </button>
-                  </div>
-                </div>
-              )}
-              <div className={`flex flex-col items-center ${exercise.bodyweight ? 'w-full' : ''}`}>
-                <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">
-                  {exercise.bodyweight ? 'Total Reps (AMRAP)' : 'Reps'}
-                </label>
-                <div className={`flex items-center gap-1 relative ${exercise.bodyweight ? 'max-w-[200px]' : 'max-w-[140px]'}`}>
+            {/* Inputs - show stopwatch controls for exercises that record duration */}
+            {exercise.stopwatch ? (
+              <div className="mb-6 text-center">
+                <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">Duration</label>
+                <Timer className={`text-pink-400 mx-auto mb-4 ${deadHangActive ? 'animate-pulse' : ''}`} size={48} />
+                <p className="text-5xl font-mono text-pink-600 mb-4">{formatTimeMs(deadHangMs)}</p>
+
+                <div className="flex gap-3">
                   <button
-                    onClick={() => setReps(r => Math.max(0, (parseInt(r) || 0) - 1).toString())}
-                    className="bg-pink-100 hover:bg-pink-200 rounded-lg w-8 h-10 flex items-center justify-center active:scale-95 transition-all shrink-0"
+                    onClick={togglePauseDeadHang}
+                    disabled={!deadHangActive && !deadHangPaused}
+                    className={`flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold ${(!deadHangActive && !deadHangPaused) ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    <Minus size={16} className="text-pink-600" />
-                  </button>
-                  <input
-                    type="number"
-                    value={reps}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value);
-                      if (val >= 0 || e.target.value === '') {
-                        setReps(e.target.value);
-                      }
-                    }}
-                    min="0"
-                    className={`w-full h-10 border-2 border-pink-100 rounded-lg text-center text-lg font-bold focus:border-pink-400 outline-none ${!exercise.bodyweight ? getRepRangeColor(reps, exercise.repRange) : 'text-pink-600'}`}
-                    placeholder="0"
-                  />
-                  <button
-                    onClick={() => setReps(r => ((parseInt(r) || 0) + 1).toString())}
-                    className="bg-pink-100 hover:bg-pink-200 rounded-lg w-8 h-10 flex items-center justify-center active:scale-95 transition-all shrink-0"
-                  >
-                    <Plus size={16} className="text-pink-600" />
+                    {deadHangActive ? 'Pause' : (deadHangPaused ? 'Resume' : 'Pause')}
                   </button>
 
-                  {/* Smart Tips - Centered relative to the + button */}
-                  {!exercise.bodyweight && (
-                    <>
-                      {shouldShowWeightIncreaseTip(reps, exercise.repRange) && (
-                        <div className="absolute -top-12 right-0 bg-orange-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap z-50 animate-bounce">
-                          Too easy? Consider adding weight ⬆️
-                          <div className="absolute -bottom-1 right-2 w-2 h-2 bg-orange-500 rotate-45"></div>
-                        </div>
-                      )}
-                      {shouldShowWeightDecreaseTip(reps, exercise.repRange) && (
-                        <div className="absolute -top-12 right-0 bg-blue-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap z-50 animate-bounce">
-                          Too hard? Consider lowering weight ⬇️
-                          <div className="absolute -bottom-1 right-2 w-2 h-2 bg-blue-500 rotate-45"></div>
-                        </div>
-                      )}
-                    </>
-                  )}
+                  <button
+                    onClick={() => (deadHangActive || deadHangPaused) ? stopDeadHang() : startDeadHang()}
+                    className="flex-1 bg-pink-500 text-white rounded-xl p-3 font-semibold"
+                  >
+                    {(deadHangActive || deadHangPaused) ? 'Stop & Log Set' : 'Start'}
+                  </button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className={`${exercise.bodyweight ? '' : 'grid grid-cols-2 gap-6'} mb-6`}>
+                  {!exercise.bodyweight && (
+                    <div className="flex flex-col items-center">
+                      <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">Weight (lbs)</label>
+                      <div className="flex items-center gap-1 max-w-[140px]">
+                        <button
+                          onClick={() => setWeight(w => Math.max(0, (parseFloat(w) || 0) - 5).toString())}
+                          className="bg-pink-100 hover:bg-pink-200 rounded-lg w-8 h-10 flex items-center justify-center active:scale-95 transition-all shrink-0"
+                        >
+                          <Minus size={16} className="text-pink-600" />
+                        </button>
+                        <input
+                          type="number"
+                          value={weight}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (val >= 0 || e.target.value === '') {
+                              setWeight(e.target.value);
+                            }
+                          }}
+                          min="0"
+                          step="2.5"
+                          className="w-full h-10 border-2 border-pink-100 rounded-lg text-center text-lg font-bold text-gray-800 focus:border-pink-400 outline-none"
+                          placeholder="0"
+                        />
+                        <button
+                          onClick={() => setWeight(w => ((parseFloat(w) || 0) + 5).toString())}
+                          className="bg-pink-100 hover:bg-pink-200 rounded-lg w-8 h-10 flex items-center justify-center active:scale-95 transition-all shrink-0"
+                        >
+                          <Plus size={16} className="text-pink-600" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className={`flex flex-col items-center ${exercise.bodyweight ? 'w-full' : ''}`}>
+                    <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">
+                      {exercise.bodyweight ? 'Total Reps (AMRAP)' : 'Reps'}
+                    </label>
+                    <div className={`flex items-center gap-1 relative ${exercise.bodyweight ? 'max-w-[200px]' : 'max-w-[140px]'}`}>
+                      <button
+                        onClick={() => setReps(r => Math.max(0, (parseInt(r) || 0) - 1).toString())}
+                        className="bg-pink-100 hover:bg-pink-200 rounded-lg w-8 h-10 flex items-center justify-center active:scale-95 transition-all shrink-0"
+                      >
+                        <Minus size={16} className="text-pink-600" />
+                      </button>
+                      <input
+                        type="number"
+                        value={reps}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (val >= 0 || e.target.value === '') {
+                            setReps(e.target.value);
+                          }
+                        }}
+                        min="0"
+                        className={`w-full h-10 border-2 border-pink-100 rounded-lg text-center text-lg font-bold focus:border-pink-400 outline-none ${!exercise.bodyweight ? getRepRangeColor(reps, exercise.repRange) : 'text-pink-600'}`}
+                        placeholder="0"
+                      />
+                      <button
+                        onClick={() => setReps(r => ((parseInt(r) || 0) + 1).toString())}
+                        className="bg-pink-100 hover:bg-pink-200 rounded-lg w-8 h-10 flex items-center justify-center active:scale-95 transition-all shrink-0"
+                      >
+                        <Plus size={16} className="text-pink-600" />
+                      </button>
 
-            <button
-              onClick={logSet}
-              disabled={(!exercise.bodyweight && !weight) || !reps}
-              className="w-full bg-pink-500 text-white rounded-xl p-4 font-bold text-lg shadow-lg hover:bg-pink-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed active:scale-95 transition-all flex items-center justify-center gap-2"
-            >
-              <Check size={24} strokeWidth={3} />
-              Log Set
-            </button>
+                      {/* Smart Tips - Centered relative to the + button */}
+                      {!exercise.bodyweight && (
+                        <>
+                          {shouldShowWeightIncreaseTip(reps, exercise.repRange) && (
+                            <div className="absolute -top-12 right-0 bg-orange-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap z-50 animate-bounce">
+                              Too easy? Consider adding weight ⬆️
+                              <div className="absolute -bottom-1 right-2 w-2 h-2 bg-orange-500 rotate-45"></div>
+                            </div>
+                          )}
+                          {shouldShowWeightDecreaseTip(reps, exercise.repRange) && (
+                            <div className="absolute -top-12 right-0 bg-blue-500 text-white text-xs px-3 py-2 rounded-lg shadow-lg whitespace-nowrap z-50 animate-bounce">
+                              Too hard? Consider lowering weight ⬇️
+                              <div className="absolute -bottom-1 right-2 w-2 h-2 bg-blue-500 rotate-45"></div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={logSet}
+                  disabled={(!exercise.bodyweight && !weight) || !reps}
+                  className="w-full bg-pink-500 text-white rounded-xl p-4 font-bold text-lg shadow-lg hover:bg-pink-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <Check size={24} strokeWidth={3} />
+                  Log Set
+                </button>
+              </>
+            )}
           </div>
 
           {/* Simple Affirmation Text */}
@@ -2463,8 +2673,8 @@ export default function BekahBuilder() {
                         )}
                         <div className={`mt-2 space-y-1 transition-all overflow-hidden ${expandedExercises[name] === false ? 'max-h-0' : 'max-h-96'}`}>
                           {sets.map((ex, i) => (
-                            <div key={i} className="p-1 ml-2 rounded text-xs text-gray-600 font-mono\">
-                              {ex.weight > 0 ? `${ex.weight}lb × ` : ''}{ex.reps}
+                            <div key={i} className="p-1 ml-2 rounded text-xs text-gray-600 font-mono">
+                              {ex.durationSeconds ? formatTimeMs(Math.round(ex.durationSeconds * 1000)) : `${ex.weight > 0 ? `${ex.weight}lb × ` : ''}${ex.reps}`}
                             </div>
                           ))}
                         </div>
