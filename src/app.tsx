@@ -139,7 +139,8 @@ const REWARDS: Reward[] = [
   { id: 'massage', name: 'Massage', cost: 12, description: "A relaxing massage from Steve's callused hands 💪" },
   { id: 'can-i-sing', name: 'Can I Sing For You?', cost: 15, description: 'Your choice of song for a beautiful serenade from Steve 🎵' },
   { id: 'driving', name: 'Driving Lessons', cost: 60, description: 'Try your best to keep your eyes open 👀' },
-  { id: 'date', name: 'Date Night', cost: 45, description: 'A special date of your choice 🌹' }
+  { id: 'date', name: 'Date Night', cost: 45, description: 'A special date of your choice 🌹' },
+  { id: 'mystery', name: 'Mystery Prize', cost: 90, description: 'A mysterious prize - it could be anything ❓' }
 ];
 
 // --- Styles ---
