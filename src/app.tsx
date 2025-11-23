@@ -135,7 +135,7 @@ interface Reward {
 
 const REWARDS: Reward[] = [
   { id: 'kiss', name: 'A Kiss', cost: 3, description: "A kiss from Steve 💋" },
-  { id: 'snuggle', name: 'Snuggle Session', cost: 9, description: 'A relaxing snuggle session, big sighs included 🤗' },
+  { id: 'snuggle', name: 'Snuggle Session', cost: 9, description: 'A soothing snuggle session, big sighs included 🤗' },
   { id: 'massage', name: 'Massage', cost: 12, description: "A relaxing massage from Steve's callused hands 💪" },
   { id: 'can-i-sing', name: 'Can I Sing For You?', cost: 15, description: 'Your choice of song for a beautiful serenade from Steve 🎵' },
   { id: 'driving', name: 'Driving Lessons', cost: 60, description: 'Try your best to keep your eyes open 👀' },
