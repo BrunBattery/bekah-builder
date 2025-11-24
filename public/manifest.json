@@ -1,0 +1,26 @@
+{
+  "name": "Bekah Builder - Workout Tracker",
+  "short_name": "Bekah Builder",
+  "description": "Track your workouts and build your fitness goals with Bekah Builder",
+  "start_url": "/bekah-builder/",
+  "scope": "/bekah-builder/",
+  "display": "standalone",
+  "theme_color": "#ec4899",
+  "background_color": "#fce7f3",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/bekah-builder/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/bekah-builder/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "fitness", "lifestyle"]
+}

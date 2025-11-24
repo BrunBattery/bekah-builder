@@ -292,6 +292,7 @@ export default function BekahBuilder() {
   const [showHotYogaComplete, setShowHotYogaComplete] = useState(false);
   const [showCustomComplete, setShowCustomComplete] = useState(false);
   const [showBackupReminder, setShowBackupReminder] = useState(false);
+  const [showUpdateAvailable, setShowUpdateAvailable] = useState(false);
 
   // --- Effects ---
 
@@ -386,6 +387,16 @@ export default function BekahBuilder() {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
+  }, []);
+
+  useEffect(() => {
+    // Listen for service worker updates
+    const handleSwUpdate = () => {
+      setShowUpdateAvailable(true);
+    };
+
+    window.addEventListener('sw-update-available', handleSwUpdate);
+    return () => window.removeEventListener('sw-update-available', handleSwUpdate);
   }, []);
 
   useEffect(() => {
@@ -1690,7 +1701,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.0.0</p>
           </div>
         </div>
 
@@ -1912,6 +1923,26 @@ export default function BekahBuilder() {
                   className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
                 >
                   Back Up Now
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Update Available Toast */}
+        {showUpdateAvailable && (
+          <div className="fixed bottom-20 left-4 right-4 z-50 animate-bounce">
+            <div className="bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl p-4 shadow-2xl">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1">
+                  <p className="font-bold text-sm">Update Available! ✨</p>
+                  <p className="text-xs opacity-90">Restart the app to get the latest version</p>
+                </div>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="bg-white text-pink-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-pink-50 active:scale-95 transition-all shrink-0"
+                >
+                  Restart
                 </button>
               </div>
             </div>
@@ -2272,7 +2303,7 @@ export default function BekahBuilder() {
             {/* Inputs - show stopwatch controls for exercises that record duration */}
             {exercise.stopwatch ? (
               <div className="mb-6 text-center">
-                <label className="block text-xs font-bold text-gray-400 mb-4 uppercase tracking-wide">Duration</label>
+                <label className="block text-xs font-bold text-gray-400 mb-6 uppercase tracking-wide">Duration</label>
                 <Timer className={`text-pink-400 mx-auto mb-4 ${deadHangActive ? 'animate-pulse' : ''}`} size={48} />
                 <p className="text-5xl font-mono text-pink-600 mb-4">{formatTimeMs(deadHangMs)}</p>
 
