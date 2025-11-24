@@ -1701,7 +1701,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.1.0</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.1.1</p>
           </div>
         </div>
 
@@ -2789,14 +2789,36 @@ export default function BekahBuilder() {
   }
 
   if (screen === 'export') {
-    const handleDownload = () => {
+    const handleDownload = async () => {
+      const fileName = `bekah-builder-backup-${new Date().toISOString().split('T')[0]}.json`;
+      const jsonData = exportData();
+      
+      // Try Web Share API first (works great on iOS)
+      if (navigator.share && navigator.canShare) {
+        try {
+          const file = new File([jsonData], fileName, { type: 'application/json' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              files: [file],
+              title: 'Bekah Builder Backup',
+              text: 'Workout data backup'
+            });
+            return;
+          }
+        } catch (err) {
+          console.log('Share failed, falling back to download:', err);
+        }
+      }
+      
+      // Fallback to traditional download
       const element = document.createElement('a');
-      const file = new Blob([exportData()], { type: 'application/json' });
+      const file = new Blob([jsonData], { type: 'application/json' });
       element.href = URL.createObjectURL(file);
-      element.download = `bekah-builder-backup-${new Date().toISOString().split('T')[0]}.json`;
+      element.download = fileName;
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
+      URL.revokeObjectURL(element.href);
     };
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2835,7 +2857,7 @@ export default function BekahBuilder() {
                   onClick={handleDownload}
                   className="flex-1 bg-pink-500 text-white font-semibold py-3 rounded-lg hover:bg-pink-600 transition-colors active:scale-95"
                 >
-                  Download File
+                  Save Backup
                 </button>
                 <button
                   onClick={copyToClipboard}
