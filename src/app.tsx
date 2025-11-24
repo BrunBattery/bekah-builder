@@ -1701,7 +1701,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.0.0</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.1.0</p>
           </div>
         </div>
 
