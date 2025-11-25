@@ -24,19 +24,18 @@ A modern, mobile-first Progressive Web App for tracking workouts, built for Beka
 - **Star system** - Earn gold stars for workouts, silver stars for rest days
 
 ### 🎁 Reward Shop
-- Redeem stars for rewards (kisses, massages, date nights, etc.)
+- Redeem stars for romantic rewards
 - Point-based system (gold = 3 pts, silver = 1 pt)
 
 ### 📱 Progressive Web App
 - **Install to home screen** - Works like a native app on iOS and Android
 - **Offline support** - Works without internet after first load
-- **Persistent storage** - Data saved reliably, especially on iOS
 - **Auto-update notifications** - Toast alerts when new version is available
 
 ### 💾 Data Management
 - **Compressed backups** - Export data as `.bbk` files (gzip compressed .json format)
 - **iOS-friendly sharing** - Native share sheet for easy backup to Files, Notes, or iCloud
-- **5-workout reminders** - Automatic backup prompts every 5 completed workouts
+- **Backup reminders** - Automatic backup prompts every 5 logged days (workouts or other activities)
 
 ### 🎨 User Experience
 - **Mobile-optimized UI** - Pink gradient theme, clean design, smooth animations
@@ -51,7 +50,6 @@ A modern, mobile-first Progressive Web App for tracking workouts, built for Beka
 - **React + TypeScript** - Type-safe component architecture
 - **Vite** - Fast build tooling and HMR
 - **Tailwind CSS** - Utility-first styling, mobile-first responsive design
-- **Lucide React** - Beautiful icon library
 - **localStorage** - Client-side data persistence
 - **Compression Streams API** - Native gzip compression for backups
 - **Service Workers** - PWA offline caching and update management

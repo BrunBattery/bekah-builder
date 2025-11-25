@@ -2796,9 +2796,8 @@ export default function BekahBuilder() {
           const file = new File([compressedBlob], fileName, { type: 'application/gzip' });
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({
-              files: [file],
-              title: 'Bekah Builder Backup'
-              // Note: Don't include 'text' parameter - it creates a separate text file on iOS
+              files: [file]
+              // Note: Don't include 'title' or 'text' - iOS creates separate files from these
             });
             return;
           }
@@ -2827,8 +2826,12 @@ export default function BekahBuilder() {
       const file = event.target.files?.[0];
       if (!file) return;
       
+      // Detect file type by extension (iOS doesn't always provide correct MIME types)
+      const isJson = file.name.endsWith('.json');
+      const isBbk = file.name.endsWith('.bbk');
+      
       // Handle legacy .json files
-      if (file.name.endsWith('.json')) {
+      if (isJson) {
         const reader = new FileReader();
         reader.onload = (e) => {
           setImportText(e.target?.result as string);
@@ -2838,12 +2841,22 @@ export default function BekahBuilder() {
       }
       
       // Handle compressed .bbk files
-      if (file.name.endsWith('.bbk')) {
+      if (isBbk) {
         try {
           const arrayBuffer = await file.arrayBuffer();
+          
+          // Check if file is actually gzipped by looking at magic bytes
+          const uint8 = new Uint8Array(arrayBuffer);
+          const isGzipped = uint8[0] === 0x1f && uint8[1] === 0x8b;
+          
+          if (!isGzipped) {
+            alert('Invalid backup file format. Please select a valid .bbk file.');
+            return;
+          }
+          
           const decompressionStream = new DecompressionStream('gzip');
           const writer = decompressionStream.writable.getWriter();
-          writer.write(new Uint8Array(arrayBuffer));
+          writer.write(uint8);
           writer.close();
           
           const decompressedBlob = await new Response(decompressionStream.readable).blob();
@@ -2851,9 +2864,13 @@ export default function BekahBuilder() {
           setImportText(text);
         } catch (err) {
           console.error('Decompression failed:', err);
-          alert('Failed to decompress backup file. Please try again or use a .json backup.');
+          alert('Failed to decompress backup file. Please make sure it\'s a valid .bbk backup file.');
         }
+        return;
       }
+      
+      // Unknown file type
+      alert('Please select a .bbk or .json backup file.');
     };
 
     return (
