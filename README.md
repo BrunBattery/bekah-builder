@@ -1,38 +1,77 @@
-# Bekah Builder: Workout Tracker
+# 💪 Bekah Builder
 
-**Bekah Builder** is a minimalist, modern, and mobile-friendly fitness tracking application built specifically for my girlfriend, Bekah.
-
----
-
-## ⭐ Key Features
-
-### **Progressive Overload Tracking**
-Automatically tracks your last successful lift (weight and reps) for each exercise.
-
-### **Dynamic Goal Setting**
-Displays your next target (weight or rep range) based on your previous performance, helping you focus on beating your last best.
-
-### **Real-Time History**
-View your complete lifting history for any exercise directly on the workout screen.
-
-### **Built-In Rest Timer**
-A built-in, customizable rest timer (60s, 90s, 120s, 180s) keeps you in the app—no switching between apps.
-
-### **Trophy Room**
-Milestones (e.g., 5 sessions completed, new PRs) are celebrated to keep motivation high.
-
-### **Local & Secure Storage**
-All data is stored persistently and securely using Firestore.
-
-### **Exportable**
-Export and re-import your data in JSON format for easy migration between devices.
+A modern, mobile-first Progressive Web App for tracking workouts, built for Bekah.
 
 ---
 
-## 🛠️ Technology Stack
+## ✨ Features
 
-- **Frontend:** React (JSX)  
-- **Styling:** Tailwind CSS (mobile-first, clean aesthetic)  
-- **Persistence:** Firebase / Firestore  
+### 🏋️ Smart Workout Tracking
+- **Progressive overload tracking** - Automatically shows your last performance for every exercise
+- **Rep range guidance** - Real-time color-coded feedback (red/green/orange) for hitting target ranges
+- **Exercise notes** - Save form cues, machine settings, and tips for each exercise
+- **Exercise swaps** - Choose variations (e.g., push-ups vs DB bench) before each workout
+- **Superset support** - Paired exercises with optimized rest periods
+
+### ⏱️ Built-in Timers
+- **Rest timer** - Customizable intervals (60s, 120s, 180s) with audio notifications
+- **Duration tracking** - Stopwatch for time-based exercises (e.g., dead hangs) with millisecond precision
+
+### 📊 Progress & History
+- **Calendar view** - Visual workout history with workout types and rest days
+- **Trophy room** - Personal records for every exercise
+- **Exercise history** - Complete lift history with collapsible exercise groups
+- **Star system** - Earn gold stars for workouts, silver stars for rest days
+
+### 🎁 Reward Shop
+- Redeem stars for romantic rewards
+- Point-based system (gold = 3 pts, silver = 1 pt)
+
+### 📱 Progressive Web App
+- **Install to home screen** - Works like a native app on iOS and Android
+- **Offline support** - Works without internet after first load
+- **Auto-update notifications** - Toast alerts when new version is available
+
+### 💾 Data Management
+- **Compressed backups** - Export data as .gz files (gzip compressed JSON format)
+- **iOS-friendly sharing** - Native share sheet for easy backup to Files, Notes, or iCloud
+- **Backup reminders** - Automatic backup prompts every 5 logged days (workouts or other activities)
+
+### 🎨 User Experience
+- **Mobile-optimized UI** - Pink gradient theme, clean design, smooth animations
+- **Confetti celebrations** - Color-coded celebrations (pink for workouts, blue for rest, etc.)
+- **Encouragement messages** - Fun motivational quotes during workouts
+- **Pre-workout cardio tracking** - Optional cardio logging (stairmaster, rowing, running)
+
+---
+
+## 🚀 Technology
+
+- **React + TypeScript** - Type-safe component architecture
+- **Vite** - Fast build tooling and HMR
+- **Tailwind CSS** - Utility-first styling, mobile-first responsive design
+- **localStorage** - Client-side data persistence
+- **Compression Streams API** - Native gzip compression for backups
+- **Service Workers** - PWA offline caching and update management
+
+---
+
+## 🎯 Workout Programs
+
+Three full-body workout routines (A/B/C rotation) with a lower-body focus, optimized for efficiency with antagonist supersets.
+
+Plus support for:
+- Hot yoga sessions
+- Rest days
+- Custom workouts
+
+---
+
+## 📦 Installation
+
+### For Users (PWA)
+1. Visit the app in Safari (iOS) or Chrome (Android)
+2. Tap "Share" → "Add to Home Screen"
+3. Launch from home screen like a native app
 
 ---
