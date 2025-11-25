@@ -33,7 +33,7 @@ A modern, mobile-first Progressive Web App for tracking workouts, built for Beka
 - **Auto-update notifications** - Toast alerts when new version is available
 
 ### 💾 Data Management
-- **Compressed backups** - Export data as `.bbk` files (gzip compressed .json format)
+- **Compressed backups** - Export data as .gz files (gzip compressed JSON format)
 - **iOS-friendly sharing** - Native share sheet for easy backup to Files, Notes, or iCloud
 - **Backup reminders** - Automatic backup prompts every 5 logged days (workouts or other activities)
 

@@ -1688,7 +1688,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.1.3</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.1.5</p>
           </div>
         </div>
 
@@ -2777,7 +2777,7 @@ export default function BekahBuilder() {
 
   if (screen === 'export') {
     const handleDownload = async () => {
-      const fileName = `bekah-builder-backup-${new Date().toISOString().split('T')[0]}.bbk`;
+      const fileName = `bekah-builder-backup-${new Date().toISOString().split('T')[0]}.gz`;
       const jsonData = exportData();
       
       // Compress data using gzip (native browser API)
@@ -2828,7 +2828,7 @@ export default function BekahBuilder() {
       
       // Detect file type by extension (iOS doesn't always provide correct MIME types)
       const isJson = file.name.endsWith('.json');
-      const isBbk = file.name.endsWith('.bbk');
+      const isGz = file.name.endsWith('.gz');
       
       // Handle legacy .json files
       if (isJson) {
@@ -2840,8 +2840,8 @@ export default function BekahBuilder() {
         return;
       }
       
-      // Handle compressed .bbk files
-      if (isBbk) {
+      // Handle compressed .gz files
+      if (isGz) {
         try {
           const arrayBuffer = await file.arrayBuffer();
           
@@ -2850,7 +2850,7 @@ export default function BekahBuilder() {
           const isGzipped = uint8[0] === 0x1f && uint8[1] === 0x8b;
           
           if (!isGzipped) {
-            alert('Invalid backup file format. Please select a valid .bbk file.');
+            alert('Invalid backup file format. Please select a valid .gz file.');
             return;
           }
           
@@ -2864,13 +2864,13 @@ export default function BekahBuilder() {
           setImportText(text);
         } catch (err) {
           console.error('Decompression failed:', err);
-          alert('Failed to decompress backup file. Please make sure it\'s a valid .bbk backup file.');
+          alert('Failed to decompress backup file. Please make sure it\'s a valid .gz backup file.');
         }
         return;
       }
       
       // Unknown file type
-      alert('Please select a .bbk or .json backup file.');
+      alert('Please select a .gz or .json backup file.');
     };
 
     return (
@@ -2912,7 +2912,7 @@ export default function BekahBuilder() {
               <div className="mb-4">
                 <input
                   type="file"
-                  accept=".bbk,.json"
+                  accept=".gz,.json,application/gzip,application/x-gzip,application/json"
                   onChange={handleFileUpload}
                   className="w-full border-2 border-dashed border-blue-200 rounded-lg p-4 cursor-pointer hover:border-blue-400 transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
