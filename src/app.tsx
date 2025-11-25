@@ -1688,7 +1688,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.1.2</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.1.3</p>
           </div>
         </div>
 
@@ -2797,17 +2797,23 @@ export default function BekahBuilder() {
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
-              title: 'Bekah Builder Backup',
-              text: 'Workout data backup'
+              title: 'Bekah Builder Backup'
+              // Note: Don't include 'text' parameter - it creates a separate text file on iOS
             });
             return;
           }
         } catch (err) {
+          // User cancelled the share sheet - don't show fallback
+          if (err instanceof Error && err.name === 'AbortError') {
+            console.log('Share cancelled by user');
+            return;
+          }
+          // Only fall through to download on actual errors
           console.log('Share failed, falling back to download:', err);
         }
       }
       
-      // Fallback to traditional download
+      // Fallback to traditional download (only for non-share-capable browsers)
       const element = document.createElement('a');
       element.href = URL.createObjectURL(compressedBlob);
       element.download = fileName;
