@@ -966,20 +966,7 @@ export default function BekahBuilder() {
     setShowDeleteConfirm(false);
   };
 
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(exportData());
-      alert("Copied to clipboard!");
-    } catch (err) {
-      const textArea = document.createElement("textarea");
-      textArea.value = exportData();
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand("copy");
-      document.body.removeChild(textArea);
-      alert("Copied to clipboard!");
-    }
-  };
+
 
   const importData = () => {
     try {
@@ -1701,7 +1688,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.1.1</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.1.2</p>
           </div>
         </div>
 
@@ -2790,13 +2777,23 @@ export default function BekahBuilder() {
 
   if (screen === 'export') {
     const handleDownload = async () => {
-      const fileName = `bekah-builder-backup-${new Date().toISOString().split('T')[0]}.json`;
+      const fileName = `bekah-builder-backup-${new Date().toISOString().split('T')[0]}.bbk`;
       const jsonData = exportData();
+      
+      // Compress data using gzip (native browser API)
+      const encoder = new TextEncoder();
+      const data = encoder.encode(jsonData);
+      const compressionStream = new CompressionStream('gzip');
+      const writer = compressionStream.writable.getWriter();
+      writer.write(data);
+      writer.close();
+      
+      const compressedBlob = await new Response(compressionStream.readable).blob();
       
       // Try Web Share API first (works great on iOS)
       if (navigator.share && navigator.canShare) {
         try {
-          const file = new File([jsonData], fileName, { type: 'application/json' });
+          const file = new File([compressedBlob], fileName, { type: 'application/gzip' });
           if (navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
@@ -2812,8 +2809,7 @@ export default function BekahBuilder() {
       
       // Fallback to traditional download
       const element = document.createElement('a');
-      const file = new Blob([jsonData], { type: 'application/json' });
-      element.href = URL.createObjectURL(file);
+      element.href = URL.createObjectURL(compressedBlob);
       element.download = fileName;
       document.body.appendChild(element);
       element.click();
@@ -2821,14 +2817,36 @@ export default function BekahBuilder() {
       URL.revokeObjectURL(element.href);
     };
 
-    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
-      if (file) {
+      if (!file) return;
+      
+      // Handle legacy .json files
+      if (file.name.endsWith('.json')) {
         const reader = new FileReader();
         reader.onload = (e) => {
           setImportText(e.target?.result as string);
         };
         reader.readAsText(file);
+        return;
+      }
+      
+      // Handle compressed .bbk files
+      if (file.name.endsWith('.bbk')) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const decompressionStream = new DecompressionStream('gzip');
+          const writer = decompressionStream.writable.getWriter();
+          writer.write(new Uint8Array(arrayBuffer));
+          writer.close();
+          
+          const decompressedBlob = await new Response(decompressionStream.readable).blob();
+          const text = await decompressedBlob.text();
+          setImportText(text);
+        } catch (err) {
+          console.error('Decompression failed:', err);
+          alert('Failed to decompress backup file. Please try again or use a .json backup.');
+        }
       }
     };
 
@@ -2852,20 +2870,13 @@ export default function BekahBuilder() {
                 <Download size={20} className="text-pink-500" />
                 Export Data
               </h3>
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={handleDownload}
-                  className="flex-1 bg-pink-500 text-white font-semibold py-3 rounded-lg hover:bg-pink-600 transition-colors active:scale-95"
-                >
-                  Save Backup
-                </button>
-                <button
-                  onClick={copyToClipboard}
-                  className="flex-1 bg-pink-100 text-pink-700 font-semibold py-3 rounded-lg hover:bg-pink-200 transition-colors active:scale-95"
-                >
-                  Copy JSON
-                </button>
-              </div>
+              <p className="text-sm text-gray-600 mb-4">Save your workout history and progress. Backups are compressed to save space.</p>
+              <button
+                onClick={handleDownload}
+                className="w-full bg-pink-500 text-white font-semibold py-3 rounded-lg hover:bg-pink-600 transition-colors active:scale-95"
+              >
+                Save Backup
+              </button>
             </div>
 
             {/* Import Section */}
@@ -2874,31 +2885,19 @@ export default function BekahBuilder() {
                 <Upload size={20} className="text-blue-500" />
                 Import Data
               </h3>
-              <div className="space-y-3 mb-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Upload File</label>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleFileUpload}
-                    className="w-full border-2 border-dashed border-blue-200 rounded-lg p-3 cursor-pointer hover:border-blue-400 transition-colors"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 text-center">OR</p>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Paste JSON</label>
-                  <textarea
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                    placeholder='Paste JSON here...'
-                    className="w-full h-32 p-3 border border-gray-200 rounded-lg text-xs font-mono focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none"
-                  />
-                </div>
+              <p className="text-sm text-gray-600 mb-4">Restore your workout history from a backup file.</p>
+              <div className="mb-4">
+                <input
+                  type="file"
+                  accept=".bbk,.json"
+                  onChange={handleFileUpload}
+                  className="w-full border-2 border-dashed border-blue-200 rounded-lg p-4 cursor-pointer hover:border-blue-400 transition-colors file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
               </div>
               <button
                 onClick={importData}
                 disabled={!importText}
-                className="w-full bg-blue-500 text-white font-semibold py-3 rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
+                className="w-full bg-blue-500 text-white font-semibold py-3 rounded-lg hover:bg-blue-600 transition-colors active:scale-95 disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Restore History
               </button>
