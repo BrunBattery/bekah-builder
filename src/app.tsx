@@ -238,6 +238,10 @@ export default function BekahBuilder() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [importText, setImportText] = useState('');
   const [hasActiveSession, setHasActiveSession] = useState(false);
+  const [showSwapExercise, setShowSwapExercise] = useState(false);
+  const [pendingSwaps, setPendingSwaps] = useState<Record<string, string>>({});
+  const [disabledSupersets, setDisabledSupersets] = useState<Set<string>>(new Set());
+  const [pendingSupersetChanges, setPendingSupersetChanges] = useState<Set<string>>(new Set());
 
   // Confetti State
   const [confetti, setConfetti] = useState<{ id: number, color: string, left: string, animationDuration: string, delay: string }[]>([]);
@@ -293,6 +297,8 @@ export default function BekahBuilder() {
   const [showCustomComplete, setShowCustomComplete] = useState(false);
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   const [showUpdateAvailable, setShowUpdateAvailable] = useState(false);
+  const [logTargetDate, setLogTargetDate] = useState<Date | null>(null);
+  const [showLogPastDayMenu, setShowLogPastDayMenu] = useState(false);
 
   // --- Effects ---
 
@@ -531,6 +537,7 @@ export default function BekahBuilder() {
     setSetupScreen(false);
     setShowProgressView(false);
     setExpandedExercises({});
+    // Don't reset disabledSupersets - preserve from setup screen
 
     const workout = WORKOUTS[workoutKey];
     loadExerciseData(workout, 0);
@@ -551,6 +558,12 @@ export default function BekahBuilder() {
     } else {
       setWeight('');
     }
+  };
+
+  const isSupersetActive = (exercise: ExerciseDef, partnerName?: string) => {
+    if (!exercise.superset && !exercise.isSuperset) return false;
+    const key = partnerName || exercise.superset || exercise.name;
+    return !disabledSupersets.has(key);
   };
 
   const getEffectiveExercise = (exercise: ExerciseDef) => {
@@ -621,8 +634,10 @@ export default function BekahBuilder() {
       let nextSetIdx = currentSetIdx;
       let restTime = 120;
 
-      const isSupersetPair1 = exercise.superset && !exercise.isSuperset;
-      const isSupersetPair2 = exercise.isSuperset;
+      const currentExDef = workout.exercises[currentExerciseIdx];
+      const supersetEnabled = isSupersetActive(currentExDef, currentExDef.superset || (currentExDef.isSuperset ? workout.exercises[currentExerciseIdx - 1]?.superset : undefined));
+      const isSupersetPair1 = exercise.superset && !exercise.isSuperset && supersetEnabled;
+      const isSupersetPair2 = exercise.isSuperset && supersetEnabled;
 
       if (isSupersetPair1) {
         nextExIdx = currentExerciseIdx + 1;
@@ -689,8 +704,10 @@ export default function BekahBuilder() {
     let nextSetIdx = currentSetIdx;
     let restTime = 120; // default
 
-    const isSupersetPair1 = exercise.superset && !exercise.isSuperset;
-    const isSupersetPair2 = exercise.isSuperset;
+    const currentExDef = workout.exercises[currentExerciseIdx];
+    const supersetEnabled = isSupersetActive(currentExDef, currentExDef.superset || (currentExDef.isSuperset ? workout.exercises[currentExerciseIdx - 1]?.superset : undefined));
+    const isSupersetPair1 = exercise.superset && !exercise.isSuperset && supersetEnabled;
+    const isSupersetPair2 = exercise.isSuperset && supersetEnabled;
 
     if (isSupersetPair1) {
       nextExIdx = currentExerciseIdx + 1;
@@ -733,10 +750,31 @@ export default function BekahBuilder() {
       }
     }
 
-    // 3. Handle Workout Completion
-    if (nextExIdx >= workout.exercises.length) {
+    // 3. Handle Workout Completion - check if ALL exercises are complete
+    const allExercisesComplete = workout.exercises.every(ex => {
+      const effectiveEx = getEffectiveExercise(ex);
+      const completedSets = newSessionData.filter(s => s.exercise === effectiveEx.name).length;
+      return completedSets >= ex.sets;
+    });
+    
+    if (allExercisesComplete) {
       finishWorkout(newSessionData);
       return;
+    }
+    
+    // If we've gone past the last exercise but not all are complete, find first incomplete
+    if (nextExIdx >= workout.exercises.length) {
+      for (let i = 0; i < workout.exercises.length; i++) {
+        const ex = workout.exercises[i];
+        const effectiveEx = getEffectiveExercise(ex);
+        const completedSets = newSessionData.filter(s => s.exercise === effectiveEx.name).length;
+        if (completedSets < ex.sets) {
+          nextExIdx = i;
+          nextSetIdx = completedSets;
+          restTime = 120; // Regular rest when looping back
+          break;
+        }
+      }
     }
 
     // 4. Set up state for Rest Screen
@@ -749,10 +787,28 @@ export default function BekahBuilder() {
     if (!pendingNav || !selectedWorkout) return;
     const workout = WORKOUTS[selectedWorkout];
 
-    setCurrentExerciseIdx(pendingNav.exIdx);
-    setCurrentSetIdx(pendingNav.setIdx);
+    // Find next incomplete exercise starting from pendingNav.exIdx
+    let targetExIdx = pendingNav.exIdx;
+    for (let i = pendingNav.exIdx; i < workout.exercises.length; i++) {
+      const ex = workout.exercises[i];
+      const effectiveEx = getEffectiveExercise(ex);
+      const completedSets = sessionData.filter(s => s.exercise === effectiveEx.name).length;
+      if (completedSets < ex.sets) {
+        targetExIdx = i;
+        break;
+      }
+    }
 
-    const nextExercise = getEffectiveExercise(workout.exercises[pendingNav.exIdx]);
+    // If target changed, reset set index to next incomplete set
+    const targetEx = workout.exercises[targetExIdx];
+    const effectiveTargetEx = getEffectiveExercise(targetEx);
+    const targetCompletedSets = sessionData.filter(s => s.exercise === effectiveTargetEx.name).length;
+    const targetSetIdx = targetExIdx === pendingNav.exIdx ? pendingNav.setIdx : targetCompletedSets;
+
+    setCurrentExerciseIdx(targetExIdx);
+    setCurrentSetIdx(targetSetIdx);
+
+    const nextExercise = getEffectiveExercise(workout.exercises[targetExIdx]);
 
     const sessionSets = sessionData.filter(s => s.exercise === nextExercise.name);
     if (sessionSets.length > 0) {
@@ -765,7 +821,7 @@ export default function BekahBuilder() {
         setReps(lastSet.reps.toString());
       }
     } else {
-      loadExerciseData(workout, pendingNav.exIdx);
+      loadExerciseData(workout, targetExIdx);
     }
 
     setEncouragement(getNewEncouragement());
@@ -1039,8 +1095,8 @@ export default function BekahBuilder() {
     setShowRestDayDialog(true);
   };
 
-  const confirmRestDay = () => {
-    const today = new Date();
+  const confirmRestDay = (targetDate?: Date, fromHistory = false) => {
+    const today = targetDate || new Date();
     today.setHours(0, 0, 0, 0);
 
     // Check if there's an existing workout for today
@@ -1053,7 +1109,7 @@ export default function BekahBuilder() {
     // Create a rest day workout entry
     const restDaySession: WorkoutSession = {
       workout: 'rest',
-      date: new Date().toISOString(),
+      date: today.toISOString(),
       exercises: []
     };
 
@@ -1083,13 +1139,67 @@ export default function BekahBuilder() {
       silver: Math.max(0, prev.silver + netSilver)
     }));
     setShowRestDayDialog(false);
-    // Blue confetti for rest day
-    spawnConfetti('rest');
-    setShowRestDayComplete(true);
+    setShowLogPastDayMenu(false);
+    setLogTargetDate(null);
+    
+    if (!fromHistory) {
+      // Blue confetti for rest day
+      spawnConfetti('rest');
+      setShowRestDayComplete(true);
+    }
   };
 
-  const confirmHotYoga = () => {
-    const today = new Date();
+  const logCustomWorkoutForDate = (targetDate: Date, fromHistory = false) => {
+    const date = new Date(targetDate);
+    date.setHours(0, 0, 0, 0);
+
+    const existingIdx = workoutHistory.findIndex(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === date.getTime();
+    });
+
+    const customSession: WorkoutSession = {
+      workout: 'custom',
+      date: date.toISOString(),
+      exercises: []
+    };
+
+    let newHistory;
+    if (existingIdx !== -1) {
+      newHistory = [...workoutHistory];
+      newHistory[existingIdx] = customSession;
+    } else {
+      newHistory = [customSession, ...workoutHistory];
+    }
+
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      return { gold: 1, silver: 0 };
+    };
+    const prevType = existingIdx !== -1 ? workoutHistory[existingIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType('custom');
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+
+    setWorkoutHistory(newHistory);
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
+    setShowLogPastDayMenu(false);
+    setLogTargetDate(null);
+    
+    if (!fromHistory) {
+      setShowCustomComplete(true);
+      spawnConfetti('custom');
+    }
+  };
+
+  const confirmHotYoga = (targetDate?: Date, fromHistory = false) => {
+    const today = targetDate || new Date();
     today.setHours(0, 0, 0, 0);
 
     // Check if there's an existing workout for today
@@ -1102,7 +1212,7 @@ export default function BekahBuilder() {
     // Create a hot yoga workout entry
     const hotYogaSession: WorkoutSession = {
       workout: 'hotYoga',
-      date: new Date().toISOString(),
+      date: today.toISOString(),
       exercises: []
     };
 
@@ -1132,10 +1242,14 @@ export default function BekahBuilder() {
       silver: Math.max(0, prev.silver + netSilver)
     }));
     setShowHotYogaDialog(false);
-    setShowHotYogaComplete(true);
-
-    // Hot yoga confetti
-    spawnConfetti('hotYoga');
+    setShowLogPastDayMenu(false);
+    setLogTargetDate(null);
+    
+    if (!fromHistory) {
+      setShowHotYogaComplete(true);
+      // Hot yoga confetti
+      spawnConfetti('hotYoga');
+    }
   };
 
   const devAddStars = () => {
@@ -1237,6 +1351,56 @@ export default function BekahBuilder() {
   };
 
   // --- Renders ---
+  
+  // Log Past Day Menu - conditionally render as overlay on any screen
+  const logPastDayMenuOverlay = showLogPastDayMenu && logTargetDate && (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+        <h3 className="text-xl font-bold text-gray-800 mb-2">Log Workout</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          {logTargetDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              confirmHotYoga(logTargetDate, true);
+            }}
+            className="w-full bg-orange-100 text-orange-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-200 flex items-center justify-center gap-2"
+          >
+            <Flame size={20} />
+            Hot Yoga
+          </button>
+          <button
+            onClick={() => {
+              confirmRestDay(logTargetDate, true);
+            }}
+            className="w-full bg-blue-100 text-blue-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-200 flex items-center justify-center gap-2"
+          >
+            <Moon size={20} />
+            Rest Day
+          </button>
+          <button
+            onClick={() => {
+              logCustomWorkoutForDate(logTargetDate, true);
+            }}
+            className="w-full bg-green-100 text-green-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-green-200 flex items-center justify-center gap-2"
+          >
+            <Dumbbell size={20} />
+            Custom Workout
+          </button>
+          <button
+            onClick={() => {
+              setShowLogPastDayMenu(false);
+              setLogTargetDate(null);
+            }}
+            className="w-full bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (setupScreen && selectedWorkout) {
     const workout = WORKOUTS[selectedWorkout];
@@ -1250,6 +1414,7 @@ export default function BekahBuilder() {
             onClick={() => {
               setSetupScreen(false);
               setSelectedWorkout(null);
+              setDisabledSupersets(new Set()); // Clear superset toggles when leaving setup
             }}
             className="mb-4 text-pink-600 flex items-center gap-2"
           >
@@ -1266,13 +1431,36 @@ export default function BekahBuilder() {
               <div className="space-y-2">
                 {workout.exercises.map((ex, idx) => {
                   const effective = getEffectiveExercise(ex);
+                  const isFirstInSuperset = ex.superset && !ex.isSuperset;
+                  const supersetDisabled = isFirstInSuperset && !isSupersetActive(ex);
+                  const isSecondInSuperset = ex.isSuperset;
+                  const shouldIndent = isSecondInSuperset && isSupersetActive(ex);
+                  
                   return (
-                    <div key={idx} className={`text-sm text-gray-600 flex items-center gap-2 ${ex.isSuperset ? 'ml-4 border-l-2 border-pink-200 pl-2' : ''}`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${ex.isSuperset ? 'bg-pink-300' : 'bg-pink-500'}`}></div>
-                      <span>{effective.name}</span>
-                      <span className="text-gray-400 text-xs">
-                        ({ex.sets} × {effective.bodyweight ? 'AMRAP' : effective.repRange})
-                      </span>
+                    <div key={idx} className={`text-sm text-gray-600 ${shouldIndent ? 'ml-4 border-l-2 border-pink-200 pl-2' : ''}`}>
+                      <div className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${shouldIndent ? 'bg-pink-300' : 'bg-pink-500'}`}></div>
+                        <span>{effective.name}</span>
+                        <span className="text-gray-400 text-xs">
+                          ({ex.sets} × {effective.bodyweight ? 'AMRAP' : effective.repRange})
+                        </span>
+                        {isFirstInSuperset && (
+                          <button
+                            onClick={() => {
+                              const newDisabled = new Set(disabledSupersets);
+                              if (supersetDisabled) {
+                                newDisabled.delete(ex.superset!);
+                              } else {
+                                newDisabled.add(ex.superset!);
+                              }
+                              setDisabledSupersets(newDisabled);
+                            }}
+                            className="px-2 py-1 rounded-lg text-xs font-semibold bg-pink-100 text-pink-700 hover:bg-pink-200 active:scale-95 transition-all shrink-0 ml-auto"
+                          >
+                            {supersetDisabled ? 'Enable SS' : 'Disable SS'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1688,7 +1876,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.1.5</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.2.1</p>
           </div>
         </div>
 
@@ -1708,7 +1896,7 @@ export default function BekahBuilder() {
                   Cancel
                 </button>
                 <button
-                  onClick={confirmHotYoga}
+                  onClick={() => confirmHotYoga()}
                   className="flex-1 bg-orange-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-600"
                 >
                   Yes!
@@ -1821,7 +2009,7 @@ export default function BekahBuilder() {
                   Cancel
                 </button>
                 <button
-                  onClick={confirmRestDay}
+                  onClick={() => confirmRestDay()}
                   className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
                 >
                   Yes!
@@ -1946,16 +2134,17 @@ export default function BekahBuilder() {
 
     // Resolve Superset partner names
     let supersetPartnerName = '';
-    let isSupersetActive = false;
+    let supersetActiveForExercise = false;
     if (exercise.superset && !exercise.isSuperset) {
       // find partner exercise object to resolve selected option name
       const partnerEx = workout.exercises.find(e => e.name === exercise.superset);
       supersetPartnerName = partnerEx ? getEffectiveExercise(partnerEx).name : exercise.superset;
-      isSupersetActive = true;
+      supersetActiveForExercise = isSupersetActive(workout.exercises[currentExerciseIdx], exercise.superset);
     } else if (exercise.isSuperset) {
       const prevEx = getEffectiveExercise(workout.exercises[currentExerciseIdx - 1]);
       supersetPartnerName = prevEx.name;
-      isSupersetActive = true;
+      const prevExDef = workout.exercises[currentExerciseIdx - 1];
+      supersetActiveForExercise = isSupersetActive(prevExDef, prevExDef.superset);
     }
 
     if (showExitConfirm) {
@@ -2079,33 +2268,71 @@ export default function BekahBuilder() {
               <div className="w-16"></div>
             </div>
 
+            {/* Modify Workout Button */}
+            <div className="bg-white rounded-2xl p-4 shadow-lg mb-4">
+              <button
+                onClick={() => {
+                  setShowSwapExercise(true);
+                  setShowProgressView(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 active:scale-95 transition-all"
+              >
+                <RotateCcw size={18} />
+                <span>Modify Workout</span>
+              </button>
+            </div>
+
             <div className="bg-white rounded-2xl p-4 shadow-lg space-y-2">
               {workout.exercises.map((ex, idx) => {
                 const effectiveEx = getEffectiveExercise(ex);
                 const exerciseSets = sessionData.filter(s => s.exercise === effectiveEx.name);
                 const isComplete = exerciseSets.length >= ex.sets;
                 const isCurrent = idx === currentExerciseIdx;
+                
+                // Check if this is first in superset and superset is active
+                const isFirstInSuperset = ex.superset && !ex.isSuperset && isSupersetActive(ex, ex.superset);
+                const isSecondInSuperset = ex.isSuperset && idx > 0 && isSupersetActive(workout.exercises[idx - 1], workout.exercises[idx - 1].superset);
 
                 return (
-                  <div key={idx} className={`border-b last:border-0 border-gray-100 pb-2 last:pb-0`}>
-                    <button
-                      onClick={() => setExpandedExercises({
-                        ...expandedExercises,
-                        [idx]: !expandedExercises[idx]
-                      })}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${isCurrent ? 'bg-pink-50' : 'hover:bg-gray-50'}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${isComplete ? 'bg-green-500' : isCurrent ? 'bg-pink-500' : 'bg-gray-300'}`}></div>
-                        <span className={`text-sm font-semibold ${isCurrent ? 'text-pink-700' : 'text-gray-700'}`}>
-                          {effectiveEx.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <span className="text-xs font-medium">{exerciseSets.length}/{ex.sets}</span>
-                        {expandedExercises[idx] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </div>
-                    </button>
+                  <div key={idx} className={`pb-2 last:pb-0 relative ${isFirstInSuperset ? 'border-l-2 border-pink-200 pl-3 pt-2 rounded-tl-lg' : isSecondInSuperset ? 'border-l-2 border-pink-200 pl-3 pb-2 rounded-bl-lg border-b border-gray-100' : 'border-b border-gray-100'}`}>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setExpandedExercises({
+                          ...expandedExercises,
+                          [idx]: !expandedExercises[idx]
+                        })}
+                        className={`flex-1 flex items-center justify-between p-3 rounded-xl transition-colors ${isCurrent ? 'bg-pink-50' : 'hover:bg-gray-50'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-2 rounded-full ${isComplete ? 'bg-green-500' : isCurrent ? 'bg-pink-500' : 'bg-gray-300'}`}></div>
+                          <span className={`text-sm font-semibold ${isCurrent ? 'text-pink-700' : 'text-gray-700'}`}>
+                            {effectiveEx.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <span className="text-xs font-medium">{exerciseSets.length}/{ex.sets}</span>
+                          {expandedExercises[idx] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </div>
+                      </button>
+                      {!isCurrent && (
+                        <button
+                          onClick={() => {
+                            setCurrentExerciseIdx(idx);
+                            // Set to the next incomplete set
+                            setCurrentSetIdx(exerciseSets.length);
+                            setShowProgressView(false);
+                          }}
+                          disabled={isComplete}
+                          className={`px-3 py-2 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+                            isComplete
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-pink-100 text-pink-700 hover:bg-pink-200 active:scale-95'
+                          }`}
+                        >
+                          Switch
+                        </button>
+                      )}
+                    </div>
 
                     {expandedExercises[idx] && (
                       <div className="ml-4 mt-2 space-y-2 border-l-2 border-gray-100 pl-4 mb-2">
@@ -2134,6 +2361,245 @@ export default function BekahBuilder() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (showSwapExercise) {
+      // Get all exercises with options
+      const exercisesWithOptions = workout.exercises.filter(ex => ex.options && ex.options.length > 0);
+      
+      // Check if any exercises will lose recorded sets due to pending swaps
+      const willLoseSets = exercisesWithOptions.some(ex => {
+        const currentEffective = getEffectiveExercise(ex);
+        const pendingChoice = pendingSwaps[ex.name];
+        const exerciseSets = sessionData.filter(s => s.exercise === currentEffective.name);
+        return exerciseSets.length > 0 && pendingChoice && pendingChoice !== currentEffective.name;
+      });
+
+      const hasChanges = Object.keys(pendingSwaps).length > 0 || pendingSupersetChanges.size > 0;
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
+          <style>{styles}</style>
+          <div className="max-w-md mx-auto">
+              <button
+                onClick={() => {
+                  setPendingSwaps({});
+                  setPendingSupersetChanges(new Set());
+                  setShowSwapExercise(false);
+                }}
+                className="mb-4 text-pink-600 flex items-center gap-2"
+              >
+                <ArrowLeft size={20} />
+                <span>Back</span>
+              </button>            <div className="bg-white rounded-2xl p-6 shadow-lg mb-4">
+              <h2 className="text-2xl font-bold text-pink-600 mb-4">{workout.name}</h2>
+
+              {/* Workout Preview */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-700 mb-2">Workout Preview:</h3>
+                <div className="space-y-2">
+                  {workout.exercises.map((ex, idx) => {
+                    // Determine effective exercise with pending swaps applied
+                    let effectiveName = ex.name;
+                    let effectiveRepRange = ex.repRange;
+                    let effectiveBodyweight = ex.bodyweight;
+                    
+                    if (ex.options && (exerciseChoices[ex.name] || pendingSwaps[ex.name])) {
+                      const chosenOptionName = pendingSwaps[ex.name] || exerciseChoices[ex.name];
+                      const found = ex.options.find(opt => 
+                        typeof opt === 'string' ? opt === chosenOptionName : (opt as any).name === chosenOptionName
+                      ) as any;
+                      
+                      effectiveName = chosenOptionName;
+                      
+                      if (found && typeof found !== 'string') {
+                        if (found.repRange) effectiveRepRange = found.repRange;
+                        if (typeof found.bodyweight !== 'undefined') effectiveBodyweight = found.bodyweight;
+                      }
+                      
+                      const isAssisted = chosenOptionName.toLowerCase().includes('assisted');
+                      const isPushupOrPullup = (chosenOptionName.toLowerCase().includes('push-up') ||
+                        chosenOptionName.toLowerCase().includes('pullup') ||
+                        chosenOptionName.toLowerCase().includes('pushups')) && !isAssisted;
+                      
+                      if (typeof effectiveBodyweight === 'undefined' || effectiveBodyweight === null) {
+                        effectiveBodyweight = isPushupOrPullup;
+                      }
+                    }
+                    
+                    const isFirstInSuperset = ex.superset && !ex.isSuperset;
+                    const isSecondInSuperset = ex.isSuperset;
+                    
+                    // For second exercise in superset, get the partner's superset name
+                    const supersetName = isSecondInSuperset && idx > 0 
+                      ? workout.exercises[idx - 1].superset 
+                      : ex.superset;
+                    
+                    // Check if this superset will be disabled after pending changes
+                    const currentlyDisabled = disabledSupersets.has(supersetName || '');
+                    const willBeDisabled = pendingSupersetChanges.has(supersetName || '') ? !currentlyDisabled : currentlyDisabled;
+                    const shouldIndent = isSecondInSuperset && !willBeDisabled;
+                    
+                    return (
+                      <div key={idx} className={`text-sm text-gray-600 ${shouldIndent ? 'ml-4 border-l-2 border-pink-200 pl-2' : ''}`}>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-1.5 h-1.5 rounded-full ${shouldIndent ? 'bg-pink-300' : 'bg-pink-500'}`}></div>
+                          <span>{effectiveName}</span>
+                          <span className="text-gray-400 text-xs">
+                            ({ex.sets} × {effectiveBodyweight ? 'AMRAP' : effectiveRepRange})
+                          </span>
+                          {isFirstInSuperset && (
+                            <button
+                              onClick={() => {
+                                const newPendingChanges = new Set(pendingSupersetChanges);
+                                if (newPendingChanges.has(ex.superset!)) {
+                                  newPendingChanges.delete(ex.superset!);
+                                } else {
+                                  newPendingChanges.add(ex.superset!);
+                                }
+                                setPendingSupersetChanges(newPendingChanges);
+                              }}
+                              className="px-2 py-1 rounded-lg text-xs font-semibold bg-pink-100 text-pink-700 hover:bg-pink-200 active:scale-95 transition-all shrink-0 ml-auto"
+                            >
+                              {willBeDisabled ? 'Enable SS' : 'Disable SS'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Exercise Swaps */}
+              {exercisesWithOptions.length > 0 && (
+                <div className="bg-gray-50 p-4 rounded-xl mb-4 border border-gray-100">
+                  <h3 className="font-semibold text-gray-700 mb-3">Choose Your Exercises:</h3>
+                  {exercisesWithOptions.map((exercise, idx) => {
+                    const currentEffective = getEffectiveExercise(exercise);
+                    const selectedOption = pendingSwaps[exercise.name] || currentEffective.name;
+                    
+                    return (
+                      <div key={idx} className="mb-4 last:mb-0">
+                        <p className="text-sm font-semibold text-gray-700 mb-2">{exercise.name}:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {exercise.options?.map(opt => {
+                            const optionName = typeof opt === 'string' ? opt : (opt as any).name;
+                            const isSelected = selectedOption === optionName;
+                            
+                            return (
+                              <button
+                                key={optionName}
+                                onClick={() => {
+                                  if (optionName === currentEffective.name) {
+                                    // Remove from pending swaps if selecting current
+                                    const newPending = { ...pendingSwaps };
+                                    delete newPending[exercise.name];
+                                    setPendingSwaps(newPending);
+                                  } else {
+                                    // Add to pending swaps
+                                    setPendingSwaps({
+                                      ...pendingSwaps,
+                                      [exercise.name]: optionName
+                                    });
+                                  }
+                                }}
+                                className={`p-3 rounded-lg border-2 transition-all text-sm ${
+                                  isSelected
+                                    ? 'border-pink-500 bg-pink-50 text-pink-700 font-semibold'
+                                    : 'border-gray-200 bg-white text-gray-700'
+                                }`}
+                              >
+                                {optionName}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Warning Message */}
+              {willLoseSets && (
+                <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 mb-4 flex items-start gap-2">
+                  <Info size={16} className="text-yellow-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-yellow-800 font-medium text-left">
+                    Swapping exercises will delete any sets already recorded for those exercises today
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setPendingSwaps({});
+                    setPendingSupersetChanges(new Set());
+                    setShowSwapExercise(false);
+                    setShowProgressView(true);
+                  }}
+                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    // Apply all pending swaps
+                    if (hasChanges) {
+                      const newChoices = { ...exerciseChoices };
+                      const exercisesToClear: string[] = [];
+                      
+                      Object.entries(pendingSwaps).forEach(([exerciseName, newOption]) => {
+                        newChoices[exerciseName] = newOption;
+                        
+                        // Track old exercise names that need data cleared
+                        const exercise = workout.exercises.find(ex => ex.name === exerciseName);
+                        if (exercise) {
+                          const oldEffective = getEffectiveExercise(exercise);
+                          exercisesToClear.push(oldEffective.name);
+                        }
+                      });
+                      
+                      setExerciseChoices(newChoices);
+                      
+                      // Apply superset changes
+                      const newDisabled = new Set(disabledSupersets);
+                      pendingSupersetChanges.forEach(supersetName => {
+                        if (newDisabled.has(supersetName)) {
+                          newDisabled.delete(supersetName);
+                        } else {
+                          newDisabled.add(supersetName);
+                        }
+                      });
+                      setDisabledSupersets(newDisabled);
+                      
+                      // Clear session data for swapped exercises
+                      if (exercisesToClear.length > 0) {
+                        setSessionData(sessionData.filter(s => !exercisesToClear.includes(s.exercise)));
+                      }
+                    }
+                    
+                    setPendingSwaps({});
+                    setPendingSupersetChanges(new Set());
+                    setShowSwapExercise(false);
+                    setShowProgressView(true);
+                  }}
+                  disabled={!hasChanges}
+                  className={`flex-1 rounded-xl p-3 font-semibold transition-all ${
+                    hasChanges
+                      ? 'bg-pink-500 text-white hover:bg-pink-600 active:scale-95'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  Confirm Changes
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2177,13 +2643,8 @@ export default function BekahBuilder() {
           <div className="bg-white rounded-2xl p-6 shadow-lg mb-4 relative">
             {/* Header Area */}
             <div className="mb-6">
-              {isSupersetActive ? (
+              {supersetActiveForExercise ? (
                 <div className="bg-pink-50 rounded-xl p-3 border border-pink-100">
-                  <div className="text-center mb-3">
-                    <span className="text-xs font-bold tracking-wider text-pink-500 uppercase flex items-center justify-center gap-1">
-                      ⚡ Superset Pair
-                    </span>
-                  </div>
                   <div className="flex items-center justify-between gap-3">
                     {/* Left Side (Ex 1) */}
                     <div className={`flex-1 text-center p-3 rounded-xl transition-all ${!exercise.isSuperset ? 'bg-white shadow-md ring-2 ring-pink-200 scale-105 z-10' : 'opacity-60 grayscale-[0.5]'}`}>
@@ -2247,7 +2708,7 @@ export default function BekahBuilder() {
 
             {/* Set Info */}
             <div className="flex justify-center items-center gap-2 text-sm text-gray-500 font-medium mb-4">
-              <span>Set {currentSetIdx + 1} of {exercise.sets}</span>
+              <span>Set {sessionData.filter(s => s.exercise === exercise.name).length + 1} of {exercise.sets}</span>
               {!exercise.bodyweight && (
                 <>
                   <span>•</span>
@@ -2271,10 +2732,13 @@ export default function BekahBuilder() {
                   <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Last Time</p>
                   <p className="text-xs text-blue-400">{new Date(getLastWorkout()?.date || '').toLocaleDateString()}</p>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 mb-2">
+                <div className="grid grid-cols-5 gap-1">
                   {lastPerformance.map((set, idx) => (
-                    <div key={idx} className="bg-white rounded px-2 py-1 text-xs font-mono text-blue-800 border border-blue-100 whitespace-nowrap">
-                      {set.durationSeconds ? formatTimeMs(Math.round(set.durationSeconds * 1000)) : `${set.weight > 0 ? `${set.weight}lb × ` : ''}${set.reps}`}
+                    <div key={idx} className="bg-white rounded px-1 py-1 text-xs font-mono text-blue-800 border border-blue-100 text-center">
+                      <div className="text-[10px] text-blue-400 font-bold leading-none mb-0.5">Set {idx + 1}</div>
+                      <div className="font-semibold leading-tight text-[11px]">
+                        {set.durationSeconds ? formatTimeMs(Math.round(set.durationSeconds * 1000)) : `${set.weight > 0 ? `${set.weight}×` : ''}${set.reps}`}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2443,6 +2907,7 @@ export default function BekahBuilder() {
             </div>
           )}
         </div>
+        {logPastDayMenuOverlay}
       </div>
     );
   }
@@ -2507,9 +2972,9 @@ export default function BekahBuilder() {
   }
 
   if (screen === 'history') {
-    const calendarDays = getCalendarDays();
     const monthNames = ["January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"];
+    const calendarDays = getCalendarDays();
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
@@ -2518,6 +2983,8 @@ export default function BekahBuilder() {
             onClick={() => {
               setScreen('home');
               setSelectedHistoryDate(null);
+              setCalendarMonth(new Date().getMonth());
+              setCalendarYear(new Date().getFullYear());
             }}
             className="mb-4 text-pink-600 flex items-center gap-2"
           >
@@ -2573,11 +3040,23 @@ export default function BekahBuilder() {
                   )
                   : 'bg-gray-50 text-gray-400';
 
+                const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
+                const minDate = new Date(2025, 10, 17); // November 17, 2025 (month is 0-indexed)
+                minDate.setHours(0, 0, 0, 0);
+                const canLog = (isPast || isToday) && !workout && date >= minDate;
+
                 return (
                   <button
                     key={idx}
-                    onClick={() => workout && setSelectedHistoryDate(date)}
-                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${dayClass} ${isToday ? 'ring-2 ring-offset-2 ring-pink-400' : ''} ${isBirthday ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''}`}
+                    onClick={() => {
+                      if (workout) {
+                        setSelectedHistoryDate(date);
+                      } else if (canLog) {
+                        setLogTargetDate(date);
+                        setShowLogPastDayMenu(true);
+                      }
+                    }}
+                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${dayClass} ${isToday ? 'ring-2 ring-offset-2 ring-pink-400' : ''} ${isBirthday ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''} ${canLog ? 'cursor-pointer hover:ring-2 hover:ring-pink-200' : ''}`}
                   >
                     {isBirthday && !workout ? <span className="text-lg">🎂</span> : (
                       <>
@@ -2771,6 +3250,7 @@ export default function BekahBuilder() {
             </div>
           )}
         </div>
+        {logPastDayMenuOverlay}
       </div>
     );
   }
@@ -2893,7 +3373,7 @@ export default function BekahBuilder() {
                 <Download size={20} className="text-pink-500" />
                 Export Data
               </h3>
-              <p className="text-sm text-gray-600 mb-4">Save your workout history and progress. Backups are compressed to save space.</p>
+              <p className="text-sm text-gray-600 mb-4">Save your workout history and progress.</p>
               <button
                 onClick={handleDownload}
                 className="w-full bg-pink-500 text-white font-semibold py-3 rounded-lg hover:bg-pink-600 transition-colors active:scale-95"
