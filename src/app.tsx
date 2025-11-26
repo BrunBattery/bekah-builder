@@ -297,6 +297,8 @@ export default function BekahBuilder() {
   const [showCustomComplete, setShowCustomComplete] = useState(false);
   const [showBackupReminder, setShowBackupReminder] = useState(false);
   const [showUpdateAvailable, setShowUpdateAvailable] = useState(false);
+  const [logTargetDate, setLogTargetDate] = useState<Date | null>(null);
+  const [showLogPastDayMenu, setShowLogPastDayMenu] = useState(false);
 
   // --- Effects ---
 
@@ -1093,8 +1095,8 @@ export default function BekahBuilder() {
     setShowRestDayDialog(true);
   };
 
-  const confirmRestDay = () => {
-    const today = new Date();
+  const confirmRestDay = (targetDate?: Date, fromHistory = false) => {
+    const today = targetDate || new Date();
     today.setHours(0, 0, 0, 0);
 
     // Check if there's an existing workout for today
@@ -1107,7 +1109,7 @@ export default function BekahBuilder() {
     // Create a rest day workout entry
     const restDaySession: WorkoutSession = {
       workout: 'rest',
-      date: new Date().toISOString(),
+      date: today.toISOString(),
       exercises: []
     };
 
@@ -1137,13 +1139,67 @@ export default function BekahBuilder() {
       silver: Math.max(0, prev.silver + netSilver)
     }));
     setShowRestDayDialog(false);
-    // Blue confetti for rest day
-    spawnConfetti('rest');
-    setShowRestDayComplete(true);
+    setShowLogPastDayMenu(false);
+    setLogTargetDate(null);
+    
+    if (!fromHistory) {
+      // Blue confetti for rest day
+      spawnConfetti('rest');
+      setShowRestDayComplete(true);
+    }
   };
 
-  const confirmHotYoga = () => {
-    const today = new Date();
+  const logCustomWorkoutForDate = (targetDate: Date, fromHistory = false) => {
+    const date = new Date(targetDate);
+    date.setHours(0, 0, 0, 0);
+
+    const existingIdx = workoutHistory.findIndex(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === date.getTime();
+    });
+
+    const customSession: WorkoutSession = {
+      workout: 'custom',
+      date: date.toISOString(),
+      exercises: []
+    };
+
+    let newHistory;
+    if (existingIdx !== -1) {
+      newHistory = [...workoutHistory];
+      newHistory[existingIdx] = customSession;
+    } else {
+      newHistory = [customSession, ...workoutHistory];
+    }
+
+    const starCountForType = (type: string | undefined | null) => {
+      if (!type) return { gold: 0, silver: 0 };
+      if (type === 'rest') return { gold: 0, silver: 1 };
+      return { gold: 1, silver: 0 };
+    };
+    const prevType = existingIdx !== -1 ? workoutHistory[existingIdx].workout : null;
+    const prevStars = starCountForType(prevType as any);
+    const newStars = starCountForType('custom');
+    const netGold = newStars.gold - prevStars.gold;
+    const netSilver = newStars.silver - prevStars.silver;
+
+    setWorkoutHistory(newHistory);
+    setStars(prev => ({
+      gold: Math.max(0, prev.gold + netGold),
+      silver: Math.max(0, prev.silver + netSilver)
+    }));
+    setShowLogPastDayMenu(false);
+    setLogTargetDate(null);
+    
+    if (!fromHistory) {
+      setShowCustomComplete(true);
+      spawnConfetti('custom');
+    }
+  };
+
+  const confirmHotYoga = (targetDate?: Date, fromHistory = false) => {
+    const today = targetDate || new Date();
     today.setHours(0, 0, 0, 0);
 
     // Check if there's an existing workout for today
@@ -1156,7 +1212,7 @@ export default function BekahBuilder() {
     // Create a hot yoga workout entry
     const hotYogaSession: WorkoutSession = {
       workout: 'hotYoga',
-      date: new Date().toISOString(),
+      date: today.toISOString(),
       exercises: []
     };
 
@@ -1186,10 +1242,14 @@ export default function BekahBuilder() {
       silver: Math.max(0, prev.silver + netSilver)
     }));
     setShowHotYogaDialog(false);
-    setShowHotYogaComplete(true);
-
-    // Hot yoga confetti
-    spawnConfetti('hotYoga');
+    setShowLogPastDayMenu(false);
+    setLogTargetDate(null);
+    
+    if (!fromHistory) {
+      setShowHotYogaComplete(true);
+      // Hot yoga confetti
+      spawnConfetti('hotYoga');
+    }
   };
 
   const devAddStars = () => {
@@ -1291,6 +1351,56 @@ export default function BekahBuilder() {
   };
 
   // --- Renders ---
+  
+  // Log Past Day Menu - conditionally render as overlay on any screen
+  const logPastDayMenuOverlay = showLogPastDayMenu && logTargetDate && (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+        <h3 className="text-xl font-bold text-gray-800 mb-2">Log Workout</h3>
+        <p className="text-sm text-gray-600 mb-4">
+          {logTargetDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+        <div className="space-y-2">
+          <button
+            onClick={() => {
+              confirmHotYoga(logTargetDate, true);
+            }}
+            className="w-full bg-orange-100 text-orange-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-200 flex items-center justify-center gap-2"
+          >
+            <Flame size={20} />
+            Hot Yoga
+          </button>
+          <button
+            onClick={() => {
+              confirmRestDay(logTargetDate, true);
+            }}
+            className="w-full bg-blue-100 text-blue-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-200 flex items-center justify-center gap-2"
+          >
+            <Moon size={20} />
+            Rest Day
+          </button>
+          <button
+            onClick={() => {
+              logCustomWorkoutForDate(logTargetDate, true);
+            }}
+            className="w-full bg-green-100 text-green-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-green-200 flex items-center justify-center gap-2"
+          >
+            <Dumbbell size={20} />
+            Custom Workout
+          </button>
+          <button
+            onClick={() => {
+              setShowLogPastDayMenu(false);
+              setLogTargetDate(null);
+            }}
+            className="w-full bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   if (setupScreen && selectedWorkout) {
     const workout = WORKOUTS[selectedWorkout];
@@ -1766,7 +1876,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.2.0</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.2.1</p>
           </div>
         </div>
 
@@ -1786,7 +1896,7 @@ export default function BekahBuilder() {
                   Cancel
                 </button>
                 <button
-                  onClick={confirmHotYoga}
+                  onClick={() => confirmHotYoga()}
                   className="flex-1 bg-orange-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-600"
                 >
                   Yes!
@@ -1899,7 +2009,7 @@ export default function BekahBuilder() {
                   Cancel
                 </button>
                 <button
-                  onClick={confirmRestDay}
+                  onClick={() => confirmRestDay()}
                   className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
                 >
                   Yes!
@@ -2184,8 +2294,8 @@ export default function BekahBuilder() {
                 const isSecondInSuperset = ex.isSuperset && idx > 0 && isSupersetActive(workout.exercises[idx - 1], workout.exercises[idx - 1].superset);
 
                 return (
-                  <div key={idx} className={`border-b last:border-0 border-gray-100 pb-2 last:pb-0 ${isFirstInSuperset || isSecondInSuperset ? 'bg-gradient-to-r from-pink-50/30 to-transparent' : ''}`}>
-                    <div className={`flex items-center gap-2 ${isSecondInSuperset ? 'ml-4 border-l-4 border-pink-400 pl-2' : isFirstInSuperset ? 'border-l-4 border-pink-400 pl-2' : ''}`}>
+                  <div key={idx} className={`pb-2 last:pb-0 relative ${isFirstInSuperset ? 'border-l-2 border-pink-200 pl-3 pt-2 rounded-tl-lg' : isSecondInSuperset ? 'border-l-2 border-pink-200 pl-3 pb-2 rounded-bl-lg border-b border-gray-100' : 'border-b border-gray-100'}`}>
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => setExpandedExercises({
                           ...expandedExercises,
@@ -2432,6 +2542,7 @@ export default function BekahBuilder() {
                     setPendingSwaps({});
                     setPendingSupersetChanges(new Set());
                     setShowSwapExercise(false);
+                    setShowProgressView(true);
                   }}
                   className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
                 >
@@ -2477,6 +2588,7 @@ export default function BekahBuilder() {
                     setPendingSwaps({});
                     setPendingSupersetChanges(new Set());
                     setShowSwapExercise(false);
+                    setShowProgressView(true);
                   }}
                   disabled={!hasChanges}
                   className={`flex-1 rounded-xl p-3 font-semibold transition-all ${
@@ -2620,10 +2732,13 @@ export default function BekahBuilder() {
                   <p className="text-xs font-bold text-blue-600 uppercase tracking-wider">Last Time</p>
                   <p className="text-xs text-blue-400">{new Date(getLastWorkout()?.date || '').toLocaleDateString()}</p>
                 </div>
-                <div className="flex gap-2 overflow-x-auto pb-1 mb-2">
+                <div className="grid grid-cols-5 gap-1">
                   {lastPerformance.map((set, idx) => (
-                    <div key={idx} className="bg-white rounded px-2 py-1 text-xs font-mono text-blue-800 border border-blue-100 whitespace-nowrap">
-                      {set.durationSeconds ? formatTimeMs(Math.round(set.durationSeconds * 1000)) : `${set.weight > 0 ? `${set.weight}lb × ` : ''}${set.reps}`}
+                    <div key={idx} className="bg-white rounded px-1 py-1 text-xs font-mono text-blue-800 border border-blue-100 text-center">
+                      <div className="text-[10px] text-blue-400 font-bold leading-none mb-0.5">Set {idx + 1}</div>
+                      <div className="font-semibold leading-tight text-[11px]">
+                        {set.durationSeconds ? formatTimeMs(Math.round(set.durationSeconds * 1000)) : `${set.weight > 0 ? `${set.weight}×` : ''}${set.reps}`}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2792,6 +2907,7 @@ export default function BekahBuilder() {
             </div>
           )}
         </div>
+        {logPastDayMenuOverlay}
       </div>
     );
   }
@@ -2856,9 +2972,9 @@ export default function BekahBuilder() {
   }
 
   if (screen === 'history') {
-    const calendarDays = getCalendarDays();
     const monthNames = ["January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December"];
+    const calendarDays = getCalendarDays();
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
@@ -2867,6 +2983,8 @@ export default function BekahBuilder() {
             onClick={() => {
               setScreen('home');
               setSelectedHistoryDate(null);
+              setCalendarMonth(new Date().getMonth());
+              setCalendarYear(new Date().getFullYear());
             }}
             className="mb-4 text-pink-600 flex items-center gap-2"
           >
@@ -2922,11 +3040,23 @@ export default function BekahBuilder() {
                   )
                   : 'bg-gray-50 text-gray-400';
 
+                const isPast = date < new Date(new Date().setHours(0, 0, 0, 0));
+                const minDate = new Date(2025, 10, 17); // November 17, 2025 (month is 0-indexed)
+                minDate.setHours(0, 0, 0, 0);
+                const canLog = (isPast || isToday) && !workout && date >= minDate;
+
                 return (
                   <button
                     key={idx}
-                    onClick={() => workout && setSelectedHistoryDate(date)}
-                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${dayClass} ${isToday ? 'ring-2 ring-offset-2 ring-pink-400' : ''} ${isBirthday ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''}`}
+                    onClick={() => {
+                      if (workout) {
+                        setSelectedHistoryDate(date);
+                      } else if (canLog) {
+                        setLogTargetDate(date);
+                        setShowLogPastDayMenu(true);
+                      }
+                    }}
+                    className={`aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative ${dayClass} ${isToday ? 'ring-2 ring-offset-2 ring-pink-400' : ''} ${isBirthday ? 'ring-2 ring-yellow-300 bg-yellow-50' : ''} ${canLog ? 'cursor-pointer hover:ring-2 hover:ring-pink-200' : ''}`}
                   >
                     {isBirthday && !workout ? <span className="text-lg">🎂</span> : (
                       <>
@@ -3120,6 +3250,7 @@ export default function BekahBuilder() {
             </div>
           )}
         </div>
+        {logPastDayMenuOverlay}
       </div>
     );
   }
