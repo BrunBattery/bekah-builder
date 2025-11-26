@@ -238,6 +238,8 @@ export default function BekahBuilder() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [importText, setImportText] = useState('');
   const [hasActiveSession, setHasActiveSession] = useState(false);
+  const [showSwapExercise, setShowSwapExercise] = useState(false);
+  const [pendingSwaps, setPendingSwaps] = useState<Record<string, string>>({});
 
   // Confetti State
   const [confetti, setConfetti] = useState<{ id: number, color: string, left: string, animationDuration: string, delay: string }[]>([]);
@@ -2079,6 +2081,20 @@ export default function BekahBuilder() {
               <div className="w-16"></div>
             </div>
 
+            {/* Modify Workout Button */}
+            <div className="bg-white rounded-2xl p-4 shadow-lg mb-4">
+              <button
+                onClick={() => {
+                  setShowSwapExercise(true);
+                  setShowProgressView(false);
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 active:scale-95 transition-all"
+              >
+                <RotateCcw size={18} />
+                <span>Modify Workout</span>
+              </button>
+            </div>
+
             <div className="bg-white rounded-2xl p-4 shadow-lg space-y-2">
               {workout.exercises.map((ex, idx) => {
                 const effectiveEx = getEffectiveExercise(ex);
@@ -2088,24 +2104,38 @@ export default function BekahBuilder() {
 
                 return (
                   <div key={idx} className={`border-b last:border-0 border-gray-100 pb-2 last:pb-0`}>
-                    <button
-                      onClick={() => setExpandedExercises({
-                        ...expandedExercises,
-                        [idx]: !expandedExercises[idx]
-                      })}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl transition-colors ${isCurrent ? 'bg-pink-50' : 'hover:bg-gray-50'}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${isComplete ? 'bg-green-500' : isCurrent ? 'bg-pink-500' : 'bg-gray-300'}`}></div>
-                        <span className={`text-sm font-semibold ${isCurrent ? 'text-pink-700' : 'text-gray-700'}`}>
-                          {effectiveEx.name}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <span className="text-xs font-medium">{exerciseSets.length}/{ex.sets}</span>
-                        {expandedExercises[idx] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                      </div>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setExpandedExercises({
+                          ...expandedExercises,
+                          [idx]: !expandedExercises[idx]
+                        })}
+                        className={`flex-1 flex items-center justify-between p-3 rounded-xl transition-colors ${isCurrent ? 'bg-pink-50' : 'hover:bg-gray-50'}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-2 rounded-full ${isComplete ? 'bg-green-500' : isCurrent ? 'bg-pink-500' : 'bg-gray-300'}`}></div>
+                          <span className={`text-sm font-semibold ${isCurrent ? 'text-pink-700' : 'text-gray-700'}`}>
+                            {effectiveEx.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <span className="text-xs font-medium">{exerciseSets.length}/{ex.sets}</span>
+                          {expandedExercises[idx] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                        </div>
+                      </button>
+                      {!isCurrent && (
+                        <button
+                          onClick={() => {
+                            setCurrentExerciseIdx(idx);
+                            setCurrentSetIdx(0);
+                            setShowProgressView(false);
+                          }}
+                          className="px-3 py-2 rounded-lg text-xs font-semibold bg-pink-100 text-pink-700 hover:bg-pink-200 active:scale-95 transition-all shrink-0"
+                        >
+                          Switch
+                        </button>
+                      )}
+                    </div>
 
                     {expandedExercises[idx] && (
                       <div className="ml-4 mt-2 space-y-2 border-l-2 border-gray-100 pl-4 mb-2">
@@ -2134,6 +2164,200 @@ export default function BekahBuilder() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (showSwapExercise) {
+      // Get all exercises with options
+      const exercisesWithOptions = workout.exercises.filter(ex => ex.options && ex.options.length > 0);
+      
+      // Check if any exercises will lose recorded sets due to pending swaps
+      const willLoseSets = exercisesWithOptions.some(ex => {
+        const currentEffective = getEffectiveExercise(ex);
+        const pendingChoice = pendingSwaps[ex.name];
+        const exerciseSets = sessionData.filter(s => s.exercise === currentEffective.name);
+        return exerciseSets.length > 0 && pendingChoice && pendingChoice !== currentEffective.name;
+      });
+
+      const hasChanges = Object.keys(pendingSwaps).length > 0;
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
+          <style>{styles}</style>
+          <div className="max-w-md mx-auto">
+            <button
+              onClick={() => {
+                setPendingSwaps({});
+                setShowSwapExercise(false);
+              }}
+              className="mb-4 text-pink-600 flex items-center gap-2"
+            >
+              <ArrowLeft size={20} />
+              <span>Back</span>
+            </button>
+
+            <div className="bg-white rounded-2xl p-6 shadow-lg mb-4">
+              <h2 className="text-2xl font-bold text-pink-600 mb-4">{workout.name}</h2>
+
+              {/* Workout Preview */}
+              <div className="mb-6">
+                <h3 className="font-semibold text-gray-700 mb-2">Workout Preview:</h3>
+                <div className="space-y-2">
+                  {workout.exercises.map((ex, idx) => {
+                    // Determine effective exercise with pending swaps applied
+                    let effectiveName = ex.name;
+                    let effectiveRepRange = ex.repRange;
+                    let effectiveBodyweight = ex.bodyweight;
+                    
+                    if (ex.options && (exerciseChoices[ex.name] || pendingSwaps[ex.name])) {
+                      const chosenOptionName = pendingSwaps[ex.name] || exerciseChoices[ex.name];
+                      const found = ex.options.find(opt => 
+                        typeof opt === 'string' ? opt === chosenOptionName : (opt as any).name === chosenOptionName
+                      ) as any;
+                      
+                      effectiveName = chosenOptionName;
+                      
+                      if (found && typeof found !== 'string') {
+                        if (found.repRange) effectiveRepRange = found.repRange;
+                        if (typeof found.bodyweight !== 'undefined') effectiveBodyweight = found.bodyweight;
+                      }
+                      
+                      const isAssisted = chosenOptionName.toLowerCase().includes('assisted');
+                      const isPushupOrPullup = (chosenOptionName.toLowerCase().includes('push-up') ||
+                        chosenOptionName.toLowerCase().includes('pullup') ||
+                        chosenOptionName.toLowerCase().includes('pushups')) && !isAssisted;
+                      
+                      if (typeof effectiveBodyweight === 'undefined' || effectiveBodyweight === null) {
+                        effectiveBodyweight = isPushupOrPullup;
+                      }
+                    }
+                    
+                    return (
+                      <div key={idx} className={`text-sm text-gray-600 flex items-center gap-2 ${ex.isSuperset ? 'ml-4 border-l-2 border-pink-200 pl-2' : ''}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${ex.isSuperset ? 'bg-pink-300' : 'bg-pink-500'}`}></div>
+                        <span>{effectiveName}</span>
+                        <span className="text-gray-400 text-xs">
+                          ({ex.sets} × {effectiveBodyweight ? 'AMRAP' : effectiveRepRange})
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Exercise Swaps */}
+              {exercisesWithOptions.length > 0 && (
+                <div className="bg-gray-50 p-4 rounded-xl mb-4 border border-gray-100">
+                  <h3 className="font-semibold text-gray-700 mb-3">Choose Your Exercises:</h3>
+                  {exercisesWithOptions.map((exercise, idx) => {
+                    const currentEffective = getEffectiveExercise(exercise);
+                    const selectedOption = pendingSwaps[exercise.name] || currentEffective.name;
+                    
+                    return (
+                      <div key={idx} className="mb-4 last:mb-0">
+                        <p className="text-sm font-semibold text-gray-700 mb-2">{exercise.name}:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {exercise.options?.map(opt => {
+                            const optionName = typeof opt === 'string' ? opt : (opt as any).name;
+                            const isSelected = selectedOption === optionName;
+                            
+                            return (
+                              <button
+                                key={optionName}
+                                onClick={() => {
+                                  if (optionName === currentEffective.name) {
+                                    // Remove from pending swaps if selecting current
+                                    const newPending = { ...pendingSwaps };
+                                    delete newPending[exercise.name];
+                                    setPendingSwaps(newPending);
+                                  } else {
+                                    // Add to pending swaps
+                                    setPendingSwaps({
+                                      ...pendingSwaps,
+                                      [exercise.name]: optionName
+                                    });
+                                  }
+                                }}
+                                className={`p-3 rounded-lg border-2 transition-all text-sm ${
+                                  isSelected
+                                    ? 'border-pink-500 bg-pink-50 text-pink-700 font-semibold'
+                                    : 'border-gray-200 bg-white text-gray-700'
+                                }`}
+                              >
+                                {optionName}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Warning Message */}
+              {willLoseSets && (
+                <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 mb-4 flex items-start gap-2">
+                  <Info size={16} className="text-yellow-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-yellow-800 font-medium text-left">
+                    Swapping exercises will delete any sets already recorded for those exercises today
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setPendingSwaps({});
+                    setShowSwapExercise(false);
+                  }}
+                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    // Apply all pending swaps
+                    if (hasChanges) {
+                      const newChoices = { ...exerciseChoices };
+                      const exercisesToClear: string[] = [];
+                      
+                      Object.entries(pendingSwaps).forEach(([exerciseName, newOption]) => {
+                        newChoices[exerciseName] = newOption;
+                        
+                        // Track old exercise names that need data cleared
+                        const exercise = workout.exercises.find(ex => ex.name === exerciseName);
+                        if (exercise) {
+                          const oldEffective = getEffectiveExercise(exercise);
+                          exercisesToClear.push(oldEffective.name);
+                        }
+                      });
+                      
+                      setExerciseChoices(newChoices);
+                      
+                      // Clear session data for swapped exercises
+                      if (exercisesToClear.length > 0) {
+                        setSessionData(sessionData.filter(s => !exercisesToClear.includes(s.exercise)));
+                      }
+                    }
+                    
+                    setPendingSwaps({});
+                    setShowSwapExercise(false);
+                  }}
+                  disabled={!hasChanges}
+                  className={`flex-1 rounded-xl p-3 font-semibold transition-all ${
+                    hasChanges
+                      ? 'bg-pink-500 text-white hover:bg-pink-600 active:scale-95'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  Confirm Changes
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -2893,7 +3117,7 @@ export default function BekahBuilder() {
                 <Download size={20} className="text-pink-500" />
                 Export Data
               </h3>
-              <p className="text-sm text-gray-600 mb-4">Save your workout history and progress. Backups are compressed to save space.</p>
+              <p className="text-sm text-gray-600 mb-4">Save your workout history and progress.</p>
               <button
                 onClick={handleDownload}
                 className="w-full bg-pink-500 text-white font-semibold py-3 rounded-lg hover:bg-pink-600 transition-colors active:scale-95"
