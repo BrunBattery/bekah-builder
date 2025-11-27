@@ -414,11 +414,7 @@ export default function BekahBuilder() {
       setHasActiveSession(false);
 
       // Check if we should show backup reminder
-      if (shouldShowBackupReminder()) {
-        setTimeout(() => {
-          setShowBackupReminder(true);
-        }, 2000); // Show after completion screen animation
-      }
+      checkAndShowBackupReminder();
     }
   }, [showCompletionScreen]);
 
@@ -1146,6 +1142,7 @@ export default function BekahBuilder() {
       // Blue confetti for rest day
       spawnConfetti('rest');
       setShowRestDayComplete(true);
+      checkAndShowBackupReminder();
     }
   };
 
@@ -1195,6 +1192,7 @@ export default function BekahBuilder() {
     if (!fromHistory) {
       setShowCustomComplete(true);
       spawnConfetti('custom');
+      checkAndShowBackupReminder();
     }
   };
 
@@ -1249,6 +1247,7 @@ export default function BekahBuilder() {
       setShowHotYogaComplete(true);
       // Hot yoga confetti
       spawnConfetti('hotYoga');
+      checkAndShowBackupReminder();
     }
   };
 
@@ -1261,14 +1260,21 @@ export default function BekahBuilder() {
   };
 
   const getCompletedWorkoutDays = () => {
-    return workoutHistory.filter(session => {
-      return session.workout === 'A' || session.workout === 'B' || session.workout === 'C' || session.workout === 'hotYoga';
-    }).length;
+    // Count all logged days (workouts, hot yoga, rest days, custom workouts)
+    return workoutHistory.length;
   };
 
   const shouldShowBackupReminder = () => {
     const completed = getCompletedWorkoutDays();
     return completed > 0 && completed % 5 === 0;
+  };
+
+  const checkAndShowBackupReminder = () => {
+    if (shouldShowBackupReminder()) {
+      setTimeout(() => {
+        setShowBackupReminder(true);
+      }, 2000);
+    }
   };
 
   const shouldShowWeightIncreaseTip = (currentReps: string, repRange: string) => {
@@ -1286,20 +1292,25 @@ export default function BekahBuilder() {
   };
 
   const getTrophyData = () => {
-    const bests: Record<string, { weight: number, reps: number, date: string, isAssisted: boolean }> = {};
+    const bests: Record<string, { weight: number, reps: number, date: string, isAssisted: boolean, durationSeconds?: number }> = {};
 
     workoutHistory.forEach(session => {
       session.exercises.forEach(set => {
         const name = set.exercise;
         const isAssisted = name.toLowerCase().includes('assisted');
+        const isDuration = typeof set.durationSeconds === 'number' && set.durationSeconds > 0;
 
         if (!bests[name]) {
-          bests[name] = { weight: set.weight, reps: set.reps, date: session.date, isAssisted };
+          bests[name] = { weight: set.weight, reps: set.reps, date: session.date, isAssisted, durationSeconds: set.durationSeconds };
         } else {
           const currentBest = bests[name];
           let isNewBest = false;
 
-          if (isAssisted) {
+          if (isDuration) {
+            // Duration-based: Longer time is better
+            const currentDuration = currentBest.durationSeconds || 0;
+            if ((set.durationSeconds || 0) > currentDuration) isNewBest = true;
+          } else if (isAssisted) {
             // Assisted: Lower weight is better
             if (set.weight < currentBest.weight) isNewBest = true;
             else if (set.weight === currentBest.weight && set.reps > currentBest.reps) isNewBest = true;
@@ -1313,7 +1324,7 @@ export default function BekahBuilder() {
           }
 
           if (isNewBest) {
-            bests[name] = { weight: set.weight, reps: set.reps, date: session.date, isAssisted };
+            bests[name] = { weight: set.weight, reps: set.reps, date: session.date, isAssisted, durationSeconds: set.durationSeconds };
           }
         }
       });
@@ -2916,56 +2927,65 @@ export default function BekahBuilder() {
     const bests = getTrophyData();
     const sortedExercises = Object.keys(bests).sort();
 
+    // Helper to format the record value display
+    const formatRecordValue = (record: { weight: number, reps: number, durationSeconds?: number }) => {
+      if (record.durationSeconds && record.durationSeconds > 0) {
+        return formatTimeMs(Math.round(record.durationSeconds * 1000));
+      } else if (record.weight > 0) {
+        return `${record.weight}lb × ${record.reps}`;
+      } else {
+        return `${record.reps} reps`;
+      }
+    };
+
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
         <div className="max-w-md mx-auto">
           <button
             onClick={() => setScreen('home')}
-            className="mb-4 text-pink-600 flex items-center gap-2"
+            className="mb-3 text-pink-600 flex items-center gap-2"
           >
             <ArrowLeft size={20} />
             <span>Back</span>
           </button>
 
-          <div className="text-center mb-6">
-            <Trophy className="text-yellow-400 mx-auto mb-2" size={48} />
-            <h2 className="text-2xl font-bold text-pink-600">Trophy Room</h2>
-            <p className="text-pink-400 text-sm">Your personal bests! 🌟</p>
+          <div className="flex items-center gap-3 mb-4">
+            <Trophy className="text-yellow-400" size={32} />
+            <div>
+              <h2 className="text-xl font-bold text-pink-600">Trophy Room</h2>
+              <p className="text-pink-400 text-xs">Your personal bests! 🌟</p>
+            </div>
           </div>
 
-          <div className="space-y-3">
-            {sortedExercises.length === 0 ? (
-              <div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-                <p>No records yet! Start a workout to set some PRs. 💪</p>
-              </div>
-            ) : (
-              sortedExercises.map(name => {
-                const record = bests[name];
-                return (
-                  <div key={name} className="bg-white rounded-xl p-4 shadow-md flex justify-between items-center">
-                    <div>
-                      <h3 className="font-bold text-gray-700">{name}</h3>
-                      <p className="text-xs text-gray-400">{new Date(record.date).toLocaleDateString()}</p>
-                    </div>
-                    <div className="text-right">
-                      {record.weight > 0 ? (
-                        <div className="text-xl font-bold text-pink-600">
-                          {record.weight}<span className="text-sm font-normal text-gray-500">lbs</span>
-                        </div>
-                      ) : (
-                        <div className="text-xl font-bold text-pink-600">
-                          {record.reps}<span className="text-sm font-normal text-gray-500">reps</span>
-                        </div>
-                      )}
-                      {record.weight > 0 && (
-                        <div className="text-xs text-gray-400">x {record.reps} reps</div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          {sortedExercises.length === 0 ? (
+            <div className="bg-white rounded-2xl p-6 text-center text-gray-500">
+              <p>No records yet! Start a workout to set some PRs. 💪</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-pink-50 border-b border-pink-100">
+                    <th className="text-left px-3 py-2 text-xs font-semibold text-pink-600">Exercise</th>
+                    <th className="text-right px-3 py-2 text-xs font-semibold text-pink-600">Best</th>
+                    <th className="text-right px-3 py-2 text-xs font-semibold text-pink-600 w-20">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedExercises.map((name, idx) => {
+                    const record = bests[name];
+                    return (
+                      <tr key={name} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                        <td className="px-3 py-2 text-sm font-medium text-gray-700 truncate max-w-[140px]" title={name}>{name}</td>
+                        <td className="px-3 py-2 text-sm font-bold text-pink-600 text-right whitespace-nowrap">{formatRecordValue(record)}</td>
+                        <td className="px-3 py-2 text-xs text-gray-400 text-right whitespace-nowrap">{new Date(record.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     )
