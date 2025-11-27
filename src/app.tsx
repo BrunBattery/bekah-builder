@@ -412,9 +412,6 @@ export default function BekahBuilder() {
 
       localStorage.removeItem('bekah-builder-active-session');
       setHasActiveSession(false);
-
-      // Check if we should show backup reminder
-      checkAndShowBackupReminder();
     }
   }, [showCompletionScreen]);
 
@@ -972,6 +969,7 @@ export default function BekahBuilder() {
     }));
 
     setShowCompletionScreen(true);
+    checkAndShowBackupReminder(newHistory.length);
   };
 
   const getLastPerformance = (exerciseName: string) => {
@@ -1142,8 +1140,8 @@ export default function BekahBuilder() {
       // Blue confetti for rest day
       spawnConfetti('rest');
       setShowRestDayComplete(true);
-      checkAndShowBackupReminder();
     }
+    checkAndShowBackupReminder(newHistory.length);
   };
 
   const logCustomWorkoutForDate = (targetDate: Date, fromHistory = false) => {
@@ -1192,8 +1190,8 @@ export default function BekahBuilder() {
     if (!fromHistory) {
       setShowCustomComplete(true);
       spawnConfetti('custom');
-      checkAndShowBackupReminder();
     }
+    checkAndShowBackupReminder(newHistory.length);
   };
 
   const confirmHotYoga = (targetDate?: Date, fromHistory = false) => {
@@ -1247,8 +1245,8 @@ export default function BekahBuilder() {
       setShowHotYogaComplete(true);
       // Hot yoga confetti
       spawnConfetti('hotYoga');
-      checkAndShowBackupReminder();
     }
+    checkAndShowBackupReminder(newHistory.length);
   };
 
   const devAddStars = () => {
@@ -1264,13 +1262,13 @@ export default function BekahBuilder() {
     return workoutHistory.length;
   };
 
-  const shouldShowBackupReminder = () => {
-    const completed = getCompletedWorkoutDays();
+  const shouldShowBackupReminder = (count?: number) => {
+    const completed = count !== undefined ? count : getCompletedWorkoutDays();
     return completed > 0 && completed % 5 === 0;
   };
 
-  const checkAndShowBackupReminder = () => {
-    if (shouldShowBackupReminder()) {
+  const checkAndShowBackupReminder = (newCount?: number) => {
+    if (shouldShowBackupReminder(newCount)) {
       setTimeout(() => {
         setShowBackupReminder(true);
       }, 2000);
@@ -1595,6 +1593,7 @@ export default function BekahBuilder() {
     setShowCustomDialog(false);
     setCustomText('');
     setShowCustomComplete(true);
+    checkAndShowBackupReminder(newHistory.length);
   };
 
   if (showCompletionScreen) {
@@ -1887,7 +1886,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.2.1</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.3.0</p>
           </div>
         </div>
 
