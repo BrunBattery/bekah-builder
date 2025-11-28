@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift, Flame, Moon, PenTool } from 'lucide-react';
+import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift, Flame, Moon, PencilLine } from 'lucide-react';
 
 // --- Types ---
 
@@ -245,6 +245,7 @@ export default function BekahBuilder() {
   // Plate Math Calculator State
   const [showPlateMath, setShowPlateMath] = useState(false);
   const [plateMathWeight, setPlateMathWeight] = useState(0);
+  const [plateMathWeightInput, setPlateMathWeightInput] = useState('0');
   const [plateMathBarbell, setPlateMathBarbell] = useState(true);
 
   // Confetti State
@@ -2695,7 +2696,7 @@ export default function BekahBuilder() {
                             className="hover:bg-pink-100 p-1.5 rounded transition-colors"
                             title="Add notes"
                           >
-                            <PenTool size={16} className="text-blue-600" />
+                            <PencilLine size={16} className="text-blue-600" />
                           </button>
                         )}
                       </div>
@@ -2716,7 +2717,7 @@ export default function BekahBuilder() {
                             className="hover:bg-pink-100 p-1.5 rounded transition-colors"
                             title="Add notes"
                           >
-                            <PenTool size={16} className="text-blue-600" />
+                            <PencilLine size={16} className="text-blue-600" />
                           </button>
                         )}
                       </div>
@@ -2734,7 +2735,7 @@ export default function BekahBuilder() {
                     className="hover:bg-pink-100 p-2 rounded transition-colors mt-1"
                     title="Add notes"
                   >
-                    <PenTool size={18} className="text-blue-600" />
+                    <PencilLine size={18} className="text-blue-600" />
                   </button>
                 </div>
               )}
@@ -2778,7 +2779,7 @@ export default function BekahBuilder() {
                 </div>
                 {exerciseNotes[exercise.name] && (
                   <div className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-100 flex items-center gap-2">
-                    <PenTool size={14} className="text-blue-600 shrink-0" />
+                    <PencilLine size={14} className="text-blue-600 shrink-0" />
                     <span>{exerciseNotes[exercise.name]}</span>
                   </div>
                 )}
@@ -2851,6 +2852,7 @@ export default function BekahBuilder() {
                       onClick={() => {
                         const startWeight = plateMathBarbell ? Math.max(45, parseFloat(weight) || 45) : (parseFloat(weight) || 0);
                         setPlateMathWeight(startWeight);
+                        setPlateMathWeightInput(startWeight.toString());
                         setShowPlateMath(true);
                       }}
                       className="hover:bg-pink-100 p-1 rounded transition-colors mb-1"
@@ -2964,9 +2966,33 @@ export default function BekahBuilder() {
                   <h3 className="text-lg font-bold text-gray-800">Plate Calculator</h3>
                 </div>
 
-                {/* Weight Display */}
+                {/* Weight Display - Editable */}
                 <div className="text-center mb-3">
-                  <div className="text-3xl font-bold text-pink-600">{plateMathWeight}<span className="text-sm text-gray-400">lbs</span></div>
+                  <div className="flex items-center justify-center gap-1">
+                    <input
+                      type="number"
+                      value={plateMathWeightInput}
+                      onChange={(e) => setPlateMathWeightInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          const val = parseFloat(plateMathWeightInput);
+                          if (!isNaN(val)) {
+                            const minWeight = plateMathBarbell ? 45 : 0;
+                            const rounded = Math.round(val / 2.5) * 2.5;
+                            const clamped = Math.max(minWeight, Math.min(600, rounded));
+                            setPlateMathWeight(clamped);
+                            setPlateMathWeightInput(clamped.toString());
+                          } else {
+                            setPlateMathWeightInput(plateMathWeight.toString());
+                          }
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                      className="w-24 text-3xl font-bold text-pink-600 text-center bg-transparent border-b-2 border-pink-200 focus:border-pink-500 outline-none"
+                    />
+                    <span className="text-sm text-gray-400">lbs</span>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">Press Enter to apply</div>
                   {plateMathBarbell && plateMathWeight >= 45 && (
                     <div className="text-xs text-gray-500">({(plateMathWeight - 45) / 2}lbs per side + 45lb bar)</div>
                   )}
@@ -3048,7 +3074,11 @@ export default function BekahBuilder() {
                     max="600"
                     step="5"
                     value={plateMathWeight}
-                    onChange={(e) => setPlateMathWeight(parseInt(e.target.value))}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      setPlateMathWeight(val);
+                      setPlateMathWeightInput(val.toString());
+                    }}
                     className="w-full h-2 bg-pink-100 rounded-lg appearance-none cursor-pointer accent-pink-500"
                   />
                   <div className="flex justify-between text-xs text-gray-400 mt-1">
@@ -3067,6 +3097,7 @@ export default function BekahBuilder() {
                       setPlateMathBarbell(e.target.checked);
                       if (e.target.checked && plateMathWeight < 45) {
                         setPlateMathWeight(45);
+                        setPlateMathWeightInput('45');
                       }
                     }}
                     className="w-4 h-4 rounded border-2 border-pink-300 text-pink-500 focus:ring-pink-400 accent-pink-500"
@@ -3408,7 +3439,7 @@ export default function BekahBuilder() {
                         {/* show independent exercise note if present */}
                         {exerciseNotes[name] && (
                           <div className="text-xs text-gray-500 p-2 bg-blue-50 rounded mt-1 ml-2 mb-2 flex items-center gap-2">
-                            <PenTool size={14} className="text-blue-600 shrink-0" />
+                            <PencilLine size={14} className="text-blue-600 shrink-0" />
                             <span>{exerciseNotes[name]}</span>
                           </div>
                         )}
