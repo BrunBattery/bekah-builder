@@ -247,7 +247,7 @@ export default function BekahBuilder() {
   const [showPlateMath, setShowPlateMath] = useState(false);
   const [plateMathWeight, setPlateMathWeight] = useState(0);
   const [plateMathWeightInput, setPlateMathWeightInput] = useState('0');
-  const [plateMathBarbell, setPlateMathBarbell] = useState(true);
+  const [plateMathBarbell, setPlateMathBarbell] = useState(false);
 
   // Confetti State
   const [confetti, setConfetti] = useState<{ id: number, color: string, left: string, animationDuration: string, delay: string }[]>([]);
@@ -2976,24 +2976,25 @@ export default function BekahBuilder() {
                       onChange={(e) => setPlateMathWeightInput(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
-                          const val = parseFloat(plateMathWeightInput);
-                          if (!isNaN(val)) {
-                            const minWeight = plateMathBarbell ? 45 : 0;
-                            const rounded = Math.round(val / 2.5) * 2.5;
-                            const clamped = Math.max(minWeight, Math.min(600, rounded));
-                            setPlateMathWeight(clamped);
-                            setPlateMathWeightInput(clamped.toString());
-                          } else {
-                            setPlateMathWeightInput(plateMathWeight.toString());
-                          }
                           (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                      onBlur={() => {
+                        const val = parseFloat(plateMathWeightInput);
+                        if (!isNaN(val)) {
+                          const minWeight = plateMathBarbell ? 45 : 0;
+                          const rounded = Math.round(val / 2.5) * 2.5;
+                          const clamped = Math.max(minWeight, Math.min(600, rounded));
+                          setPlateMathWeight(clamped);
+                          setPlateMathWeightInput(clamped.toString());
+                        } else {
+                          setPlateMathWeightInput(plateMathWeight.toString());
                         }
                       }}
                       className="w-24 text-3xl font-bold text-pink-600 text-center bg-transparent border-b-2 border-pink-200 focus:border-pink-500 outline-none"
                     />
                     <span className="text-sm text-gray-400">lbs</span>
                   </div>
-                  <div className="text-xs text-gray-400 mt-1">Press Enter to apply</div>
                   {plateMathBarbell && plateMathWeight >= 45 && (
                     <div className="text-xs text-gray-500">({(plateMathWeight - 45) / 2}lbs per side + 45lb bar)</div>
                   )}
