@@ -7,7 +7,6 @@ interface ExerciseDef {
   name: string;
   sets: number;
   repRange: string;
-  note?: string;
   bodyweight?: boolean | null;
   options?: Array<string | { name: string; repRange?: string; bodyweight?: boolean | null }>;
   superset?: string; // Name of the exercise paired with
@@ -49,7 +48,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
     name: 'Full Body A',
     focus: 'Knee Flexion / Squat',
     exercises: [
-      { name: 'Squats', sets: 5, repRange: '6-10', note: 'Machine/smith/barbell all fine', bodyweight: false },
+      { name: 'Squats', sets: 5, repRange: '6-10', bodyweight: false },
       {
         name: 'Push-ups/DB Bench',
         sets: 3,
@@ -59,7 +58,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
         bodyweight: null
       },
       { name: 'EZ Bar Curls/Dumbbell Curls', sets: 3, repRange: '8-12', options: [{ name: 'EZ Bar Curls', repRange: '8-12' }, { name: 'Dumbbell Curls', repRange: '8-12' }], isSuperset: true, bodyweight: false },
-      { name: 'Bulgarian Split Squats', sets: 3, repRange: '8-12', note: 'Each leg', superset: 'Abs', bodyweight: false },
+      { name: 'Bulgarian Split Squats', sets: 3, repRange: '8-12', superset: 'Abs', bodyweight: false },
       { name: 'Abs', sets: 3, repRange: 'AMRAP', isSuperset: true, bodyweight: true },
       { name: 'Machine Kickbacks', sets: 3, repRange: '12-20', superset: 'Seated Cable Row/Machine Row', bodyweight: false },
       { name: 'Seated Cable Row/Machine Row', sets: 3, repRange: '10-15', options: [{ name: 'Seated Cable Row', repRange: '10-15' }, { name: 'Machine Row', repRange: '8-12' }], isSuperset: true, bodyweight: false }
@@ -100,7 +99,7 @@ const WORKOUTS: Record<string, WorkoutDef> = {
         superset: 'Back Extensions',
         bodyweight: null
       },
-      { name: 'Back Extensions', sets: 3, repRange: '12-15', note: 'Glute-focused', isSuperset: true, bodyweight: false },
+      { name: 'Back Extensions', sets: 3, repRange: '12-15', isSuperset: true, bodyweight: false },
       { name: 'Leg Curls', sets: 3, repRange: '10-15', superset: 'Machine Kickbacks', bodyweight: false },
       { name: 'Machine Kickbacks', sets: 3, repRange: '12-20', isSuperset: true, bodyweight: false }
     ]
@@ -242,6 +241,11 @@ export default function BekahBuilder() {
   const [pendingSwaps, setPendingSwaps] = useState<Record<string, string>>({});
   const [disabledSupersets, setDisabledSupersets] = useState<Set<string>>(new Set());
   const [pendingSupersetChanges, setPendingSupersetChanges] = useState<Set<string>>(new Set());
+
+  // Plate Math Calculator State
+  const [showPlateMath, setShowPlateMath] = useState(false);
+  const [plateMathWeight, setPlateMathWeight] = useState(0);
+  const [plateMathBarbell, setPlateMathBarbell] = useState(true);
 
   // Confetti State
   const [confetti, setConfetti] = useState<{ id: number, color: string, left: string, animationDuration: string, delay: string }[]>([]);
@@ -1287,6 +1291,26 @@ export default function BekahBuilder() {
     if (!match) return false;
     const min = parseInt(match[1]);
     return parseInt(currentReps) < min;
+  };
+
+  // Calculate optimal plate breakdown for each side of the bar
+  const calculatePlates = (totalWeight: number, includeBarbell: boolean) => {
+    const plates = [45, 35, 25, 10, 5, 2.5];
+    const result: Record<number, number> = {};
+
+    // Subtract barbell weight if applicable
+    let weightPerSide = includeBarbell ? (totalWeight - 45) / 2 : totalWeight / 2;
+    if (weightPerSide < 0) weightPerSide = 0;
+
+    plates.forEach(plate => {
+      const count = Math.floor(weightPerSide / plate);
+      if (count > 0) {
+        result[plate] = count;
+        weightPerSide -= count * plate;
+      }
+    });
+
+    return result;
   };
 
   const getTrophyData = () => {
@@ -2787,7 +2811,7 @@ export default function BekahBuilder() {
               </div>
             ) : (
               <>
-                <div className={`${exercise.bodyweight ? '' : 'grid grid-cols-2 gap-6'} mb-6`}>
+                <div className={`${exercise.bodyweight ? '' : 'flex items-end justify-center gap-3'} mb-6`}>
                   {!exercise.bodyweight && (
                     <div className="flex flex-col items-center">
                       <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">Weight (lbs)</label>
@@ -2820,6 +2844,20 @@ export default function BekahBuilder() {
                         </button>
                       </div>
                     </div>
+                  )}
+                  {/* Plate Calculator Button - between weight and reps */}
+                  {!exercise.bodyweight && (
+                    <button
+                      onClick={() => {
+                        const startWeight = plateMathBarbell ? Math.max(45, parseFloat(weight) || 45) : (parseFloat(weight) || 0);
+                        setPlateMathWeight(startWeight);
+                        setShowPlateMath(true);
+                      }}
+                      className="hover:bg-pink-100 p-1 rounded transition-colors mb-1"
+                      title="Plate Calculator"
+                    >
+                      <Dumbbell size={16} className="text-pink-500" />
+                    </button>
                   )}
                   <div className={`flex flex-col items-center ${exercise.bodyweight ? 'w-full' : ''}`}>
                     <label className="block text-xs font-bold text-gray-400 mb-1 uppercase tracking-wide">
@@ -2911,6 +2949,192 @@ export default function BekahBuilder() {
                     className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
                   >
                     Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Plate Math Calculator Modal */}
+          {showPlateMath && (
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Dumbbell className="text-pink-500" size={20} />
+                  <h3 className="text-lg font-bold text-gray-800">Plate Calculator</h3>
+                </div>
+
+                {/* Weight Display */}
+                <div className="text-center mb-3">
+                  <div className="text-3xl font-bold text-pink-600">{plateMathWeight}<span className="text-sm text-gray-400">lbs</span></div>
+                  {plateMathBarbell && plateMathWeight >= 45 && (
+                    <div className="text-xs text-gray-500">({(plateMathWeight - 45) / 2}lbs per side + 45lb bar)</div>
+                  )}
+                  {!plateMathBarbell && plateMathWeight > 0 && (
+                    <div className="text-xs text-gray-500">({plateMathWeight / 2}lbs per side)</div>
+                  )}
+                </div>
+
+                {/* Visual Barbell */}
+                {(() => {
+                  const plates = calculatePlates(plateMathWeight, plateMathBarbell);
+                  const plateList = [45, 35, 25, 10, 5, 2.5];
+                  const plateSizes: Record<number, { height: number; color: string; bg: string }> = {
+                    45: { height: 40, color: '#f87171', bg: '#fef2f2' },
+                    35: { height: 36, color: '#fb923c', bg: '#fff7ed' },
+                    25: { height: 32, color: '#4ade80', bg: '#f0fdf4' },
+                    10: { height: 26, color: '#60a5fa', bg: '#eff6ff' },
+                    5: { height: 20, color: '#a78bfa', bg: '#f5f3ff' },
+                    2.5: { height: 14, color: '#f472b6', bg: '#fdf2f8' }
+                  };
+
+                  // Build array of plates for one side
+                  const platesOneSide: number[] = [];
+                  plateList.forEach(plate => {
+                    const count = plates[plate] || 0;
+                    for (let i = 0; i < count; i++) {
+                      platesOneSide.push(plate);
+                    }
+                  });
+
+                  return (
+                    <div className="flex items-center justify-center mb-3 py-2">
+                      {/* Left plates (reversed order, furthest from center first) */}
+                      <div className="flex items-center">
+                        {[...platesOneSide].reverse().map((plate, idx) => (
+                          <div
+                            key={`left-${idx}`}
+                            className="rounded-sm mx-px"
+                            style={{
+                              width: 6,
+                              height: plateSizes[plate].height,
+                              backgroundColor: plateSizes[plate].color
+                            }}
+                          />
+                        ))}
+                      </div>
+                      {/* Barbell bar or machine arms */}
+                      {plateMathBarbell ? (
+                        <div className="h-2 bg-gray-400 rounded-full" style={{ width: 80 }} />
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="h-2 bg-gray-400 rounded-full" style={{ width: 30 }} />
+                          <div className="h-2 bg-gray-400 rounded-full" style={{ width: 30 }} />
+                        </div>
+                      )}
+                      {/* Right plates */}
+                      <div className="flex items-center">
+                        {platesOneSide.map((plate, idx) => (
+                          <div
+                            key={`right-${idx}`}
+                            className="rounded-sm mx-px"
+                            style={{
+                              width: 6,
+                              height: plateSizes[plate].height,
+                              backgroundColor: plateSizes[plate].color
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Slider */}
+                <div className="mb-3">
+                  <input
+                    type="range"
+                    min={plateMathBarbell ? 45 : 0}
+                    max="600"
+                    step="5"
+                    value={plateMathWeight}
+                    onChange={(e) => setPlateMathWeight(parseInt(e.target.value))}
+                    className="w-full h-2 bg-pink-100 rounded-lg appearance-none cursor-pointer accent-pink-500"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>{plateMathBarbell ? 45 : 0}</span>
+                    <span>300</span>
+                    <span>600</span>
+                  </div>
+                </div>
+
+                {/* Barbell Checkbox */}
+                <label className="flex items-center gap-2 mb-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={plateMathBarbell}
+                    onChange={(e) => {
+                      setPlateMathBarbell(e.target.checked);
+                      if (e.target.checked && plateMathWeight < 45) {
+                        setPlateMathWeight(45);
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-2 border-pink-300 text-pink-500 focus:ring-pink-400 accent-pink-500"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Barbell (45lb bar)</span>
+                </label>
+
+                {/* Compact Plate Breakdown */}
+                <div className="bg-gray-50 rounded-lg p-2 mb-3">
+                  <div className="text-xs font-bold text-gray-500 uppercase mb-1">Plates per side:</div>
+                  {(() => {
+                    const plates = calculatePlates(plateMathWeight, plateMathBarbell);
+                    const plateList = [45, 35, 25, 10, 5, 2.5];
+                    const plateColors: Record<number, { bg: string; text: string; border: string }> = {
+                      45: { bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
+                      35: { bg: '#fff7ed', text: '#ea580c', border: '#fed7aa' },
+                      25: { bg: '#f0fdf4', text: '#16a34a', border: '#bbf7d0' },
+                      10: { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
+                      5: { bg: '#f5f3ff', text: '#7c3aed', border: '#ddd6fe' },
+                      2.5: { bg: '#fdf2f8', text: '#db2777', border: '#fbcfe8' }
+                    };
+                    const hasPlates = Object.values(plates).some(v => v > 0);
+
+                    if (!hasPlates) {
+                      return <div className="text-xs text-gray-400 text-center py-1">No plates needed</div>;
+                    }
+
+                    return (
+                      <div className="flex flex-wrap gap-1">
+                        {plateList.map(plate => {
+                          const count = plates[plate] || 0;
+                          if (count === 0) return null;
+                          const colors = plateColors[plate];
+                          return (
+                            <span
+                              key={plate}
+                              className="px-2 py-0.5 rounded text-xs"
+                              style={{
+                                backgroundColor: colors.bg,
+                                border: `1px solid ${colors.border}`
+                              }}
+                            >
+                              <span className="font-bold" style={{ color: colors.text }}>{count}×</span>
+                              <span style={{ color: colors.text }}>{plate}lb</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowPlateMath(false)}
+                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      setWeight(plateMathWeight.toString());
+                      setShowPlateMath(false);
+                    }}
+                    className="flex-1 bg-pink-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-pink-600"
+                  >
+                    Confirm Weight
                   </button>
                 </div>
               </div>
