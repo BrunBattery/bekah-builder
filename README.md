@@ -7,71 +7,55 @@ A modern, mobile-first Progressive Web App for tracking workouts, built for Beka
 ## ✨ Features
 
 ### 🏋️ Smart Workout Tracking
-- **Progressive overload tracking** - Automatically shows your last performance for every exercise
-- **Rep range guidance** - Real-time color-coded feedback (red/green/orange) for hitting target ranges
-- **Exercise notes** - Save form cues, machine settings, and tips for each exercise
-- **Exercise swaps** - Choose variations (e.g., push-ups vs DB bench) before each workout
+- **Progressive overload** - Shows last performance for every exercise
+- **Rep range guidance** - Color-coded feedback for hitting target ranges
+- **Exercise notes** - Save form cues, machine settings, and tips
+- **Exercise swaps** - Choose variations before each workout
 - **Superset support** - Paired exercises with optimized rest periods
+- **Rest & duration timers** - Customizable rest intervals + stopwatch for timed exercises
 
-### ⏱️ Built-in Timers
-- **Rest timer** - Customizable intervals (60s, 120s, 180s) with audio notifications
-- **Duration tracking** - Stopwatch for time-based exercises (e.g., dead hangs) with millisecond precision
+### 🔢 Plate Math Calculator
+- **Visual plate loading** - Color-coded plates for barbell or machine mode
+- **Smart rounding** - Enter any weight, rounds to nearest 2.5lb
 
 ### 📊 Progress & History
-- **Calendar view** - Visual workout history with workout types and rest days
+- **Calendar view** - Visual workout history with workout types
 - **Trophy room** - Personal records for every exercise
-- **Exercise history** - Complete lift history with collapsible exercise groups
-- **Star system** - Earn gold stars for workouts, silver stars for rest days
+- **Star system** - Gold stars for workouts, silver for rest days
 
 ### 🎁 Reward Shop
-- Redeem stars for romantic rewards
-- Point-based system (gold = 3 pts, silver = 1 pt)
+- Redeem stars for rewards (gold = 3 pts, silver = 1 pt)
 
-### 📱 Progressive Web App
-- **Install to home screen** - Works like a native app on iOS and Android
+### 📱 PWA & Data
+- **Install to home screen** - Works like a native app on iOS/Android
 - **Offline support** - Works without internet after first load
-- **Auto-update notifications** - Toast alerts when new version is available
-
-### 💾 Data Management
-- **Compressed backups** - Export data as .gz files (gzip compressed JSON format)
-- **iOS-friendly sharing** - Native share sheet for easy backup to Files, Notes, or iCloud
-- **Backup reminders** - Automatic backup prompts every 5 logged days (workouts or other activities)
-
-### 🎨 User Experience
-- **Mobile-optimized UI** - Pink gradient theme, clean design, smooth animations
-- **Confetti celebrations** - Color-coded celebrations (pink for workouts, blue for rest, etc.)
-- **Encouragement messages** - Fun motivational quotes during workouts
-- **Pre-workout cardio tracking** - Optional cardio logging (stairmaster, rowing, running)
+- **Compressed backups** - Export/import data with automatic backup reminders
 
 ---
 
 ## 🚀 Technology
 
-- **React + TypeScript** - Type-safe component architecture
-- **Vite** - Fast build tooling and HMR
-- **Tailwind CSS** - Utility-first styling, mobile-first responsive design
-- **localStorage** - Client-side data persistence
-- **Compression Streams API** - Native gzip compression for backups
-- **Service Workers** - PWA offline caching and update management
+React + TypeScript • Vite • Tailwind CSS • localStorage • Service Workers
 
 ---
 
 ## 🎯 Workout Programs
 
-Three full-body workout routines (A/B/C rotation) with a lower-body focus, optimized for efficiency with antagonist supersets.
-
-Plus support for:
-- Hot yoga sessions
-- Rest days
-- Custom workouts
+Three full-body routines (A/B/C rotation) with lower-body focus and antagonist supersets. Plus hot yoga, rest days, and custom workouts.
 
 ---
 
 ## 📦 Installation
 
-### For Users (PWA)
 1. Visit the app in Safari (iOS) or Chrome (Android)
 2. Tap "Share" → "Add to Home Screen"
-3. Launch from home screen like a native app
+
+---
+
+## 📜 Licensing
+
+Open source — free for commercial use, modification, and distribution.
+
+All dependencies use permissive licenses (MIT, ISC, Apache-2.0): React, Vite, TypeScript, Tailwind CSS, lucide-react, PostCSS, Autoprefixer.
 
 ---

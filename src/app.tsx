@@ -181,6 +181,53 @@ const styles = `
   }
 `;
 
+// --- Helper Functions ---
+
+/**
+ * Returns the star count (gold/silver) for a given activity type.
+ * Rest days give silver stars, all other activities give gold stars.
+ */
+const getStarCountForType = (type: string | undefined | null): { gold: number; silver: number } => {
+  if (!type) return { gold: 0, silver: 0 };
+  if (type === 'rest') return { gold: 0, silver: 1 };
+  return { gold: 1, silver: 0 };
+};
+
+// --- Reusable Components ---
+
+/** Confetti overlay for celebration animations */
+const ConfettiOverlay = ({ confetti, includeStyles = false }: {
+  confetti: { id: number; color: string; left: string; animationDuration: string; delay: string }[];
+  includeStyles?: boolean;
+}) => (
+  <>
+    {includeStyles && <style>{styles}</style>}
+    {confetti.map(c => (
+      <div
+        key={c.id}
+        className="confetti"
+        style={{
+          backgroundColor: c.color,
+          left: c.left,
+          animationDuration: c.animationDuration,
+          animationDelay: c.delay
+        }}
+      />
+    ))}
+  </>
+);
+
+/** Back button component for navigation */
+const BackButton = ({ onClick, className = '' }: { onClick: () => void; className?: string }) => (
+  <button
+    onClick={onClick}
+    className={`text-pink-600 flex items-center gap-2 ${className}`}
+  >
+    <ArrowLeft size={20} />
+    <span>Back</span>
+  </button>
+);
+
 // --- Main Component ---
 
 export default function BekahBuilder() {
@@ -956,16 +1003,9 @@ export default function BekahBuilder() {
 
     setWorkoutHistory(newHistory);
     // Adjust stars for replacement (remove previous day's star if present, add new)
-    const starCountForType = (type: string | undefined | null) => {
-      if (!type) return { gold: 0, silver: 0 };
-      if (type === 'rest') return { gold: 0, silver: 1 };
-      // treat hotYoga and regular workouts as gold
-      return { gold: 1, silver: 0 };
-    };
-
     const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
-    const prevStars = starCountForType(prevType as any);
-    const newStars = starCountForType(selectedWorkout);
+    const prevStars = getStarCountForType(prevType);
+    const newStars = getStarCountForType(selectedWorkout);
     const netGold = newStars.gold - prevStars.gold;
     const netSilver = newStars.silver - prevStars.silver;
 
@@ -1005,12 +1045,7 @@ export default function BekahBuilder() {
 
     // Adjust stars for deleted workout
     if (deletedSession) {
-      const starCountForType = (type: string | undefined | null) => {
-        if (!type) return { gold: 0, silver: 0 };
-        if (type === 'rest') return { gold: 0, silver: 1 };
-        return { gold: 1, silver: 0 };
-      };
-      const deletedStars = starCountForType(deletedSession.workout);
+      const deletedStars = getStarCountForType(deletedSession.workout);
       setStars(prev => ({
         gold: Math.max(0, prev.gold - deletedStars.gold),
         silver: Math.max(0, prev.silver - deletedStars.silver)
@@ -1122,14 +1157,9 @@ export default function BekahBuilder() {
     }
 
     // Adjust stars: subtract previous day's star if present, add rest day's silver star
-    const starCountForType = (type: string | undefined | null) => {
-      if (!type) return { gold: 0, silver: 0 };
-      if (type === 'rest') return { gold: 0, silver: 1 };
-      return { gold: 1, silver: 0 };
-    };
     const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
-    const prevStars = starCountForType(prevType as any);
-    const newStars = starCountForType('rest');
+    const prevStars = getStarCountForType(prevType);
+    const newStars = getStarCountForType('rest');
     const netGold = newStars.gold - prevStars.gold;
     const netSilver = newStars.silver - prevStars.silver;
 
@@ -1174,14 +1204,9 @@ export default function BekahBuilder() {
       newHistory = [customSession, ...workoutHistory];
     }
 
-    const starCountForType = (type: string | undefined | null) => {
-      if (!type) return { gold: 0, silver: 0 };
-      if (type === 'rest') return { gold: 0, silver: 1 };
-      return { gold: 1, silver: 0 };
-    };
     const prevType = existingIdx !== -1 ? workoutHistory[existingIdx].workout : null;
-    const prevStars = starCountForType(prevType as any);
-    const newStars = starCountForType('custom');
+    const prevStars = getStarCountForType(prevType);
+    const newStars = getStarCountForType('custom');
     const netGold = newStars.gold - prevStars.gold;
     const netSilver = newStars.silver - prevStars.silver;
 
@@ -1227,14 +1252,9 @@ export default function BekahBuilder() {
     }
 
     // Adjust stars: remove previous star and add hotYoga gold star
-    const starCountForType = (type: string | undefined | null) => {
-      if (!type) return { gold: 0, silver: 0 };
-      if (type === 'rest') return { gold: 0, silver: 1 };
-      return { gold: 1, silver: 0 };
-    };
     const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
-    const prevStars = starCountForType(prevType as any);
-    const newStars = starCountForType('hotYoga');
+    const prevStars = getStarCountForType(prevType);
+    const newStars = getStarCountForType('hotYoga');
     const netGold = newStars.gold - prevStars.gold;
     const netSilver = newStars.silver - prevStars.silver;
 
@@ -1597,15 +1617,9 @@ export default function BekahBuilder() {
     setWorkoutHistory(newHistory);
 
     // adjust stars: remove previous day's stars, add gold for custom
-    const starCountForType = (type: string | undefined | null) => {
-      if (!type) return { gold: 0, silver: 0 };
-      if (type === 'rest') return { gold: 0, silver: 1 };
-      return { gold: 1, silver: 0 };
-    };
-
     const prevType = existingTodayIdx !== -1 ? workoutHistory[existingTodayIdx].workout : null;
-    const prevStars = starCountForType(prevType as any);
-    const newStars = starCountForType('custom');
+    const prevStars = getStarCountForType(prevType);
+    const newStars = getStarCountForType('custom');
     const netGold = newStars.gold - prevStars.gold;
     const netSilver = newStars.silver - prevStars.silver;
     setStars(prev => ({
@@ -1625,19 +1639,7 @@ export default function BekahBuilder() {
   if (showCompletionScreen) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
-        <style>{styles}</style>
-        {confetti.map(c => (
-          <div
-            key={c.id}
-            className="confetti"
-            style={{
-              backgroundColor: c.color,
-              left: c.left,
-              animationDuration: c.animationDuration,
-              animationDelay: c.delay
-            }}
-          />
-        ))}
+        <ConfettiOverlay confetti={confetti} includeStyles />
         <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
           <div className="text-8xl mb-4 animate-bounce">🎉</div>
           <h1 className="text-4xl font-bold text-pink-600 mb-2">Workout Complete!</h1>
@@ -1666,19 +1668,7 @@ export default function BekahBuilder() {
     if (showHotYogaComplete) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
-          <style>{styles}</style>
-          {confetti.map(c => (
-            <div
-              key={c.id}
-              className="confetti"
-              style={{
-                backgroundColor: c.color,
-                left: c.left,
-                animationDuration: c.animationDuration,
-                animationDelay: c.delay
-              }}
-            />
-          ))}
+          <ConfettiOverlay confetti={confetti} includeStyles />
           <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
             <Flame className="mx-auto mb-4 animate-bounce text-orange-400" size={80} />
             <h1 className="text-4xl font-bold text-orange-600 mb-2">Hot Yoga Complete!</h1>
@@ -1702,19 +1692,7 @@ export default function BekahBuilder() {
     if (showRestDayComplete) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
-          <style>{styles}</style>
-          {confetti.map(c => (
-            <div
-              key={c.id}
-              className="confetti"
-              style={{
-                backgroundColor: c.color,
-                left: c.left,
-                animationDuration: c.animationDuration,
-                animationDelay: c.delay
-              }}
-            />
-          ))}
+          <ConfettiOverlay confetti={confetti} includeStyles />
           <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
             <Moon className="mx-auto mb-4 text-blue-400" size={80} />
             <h1 className="text-4xl font-bold text-blue-600 mb-2">Rest Day Logged!</h1>
@@ -1738,19 +1716,7 @@ export default function BekahBuilder() {
     if (showCustomComplete) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
-          <style>{styles}</style>
-          {confetti.map(c => (
-            <div
-              key={c.id}
-              className="confetti"
-              style={{
-                backgroundColor: c.color,
-                left: c.left,
-                animationDuration: c.animationDuration,
-                animationDelay: c.delay
-              }}
-            />
-          ))}
+          <ConfettiOverlay confetti={confetti} includeStyles />
           <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
             <Dumbbell className="mx-auto mb-4 text-green-400" size={80} />
             <h1 className="text-4xl font-bold text-green-600 mb-2">Custom Workout Logged!</h1>
@@ -1912,7 +1878,7 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.3.0</p>
+            <p>Copyright Steve from the CRA, 2025 • v2.3.1</p>
           </div>
         </div>
 
@@ -2058,19 +2024,7 @@ export default function BekahBuilder() {
         {/* Hot Yoga Complete Screen */}
         {showHotYogaComplete && (
           <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
-            <style>{styles}</style>
-            {confetti.map(c => (
-              <div
-                key={c.id}
-                className="confetti"
-                style={{
-                  backgroundColor: c.color,
-                  left: c.left,
-                  animationDuration: c.animationDuration,
-                  animationDelay: c.delay
-                }}
-              />
-            ))}
+            <ConfettiOverlay confetti={confetti} includeStyles />
             <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
               <div className="text-8xl mb-4 animate-bounce">🔥</div>
               <h1 className="text-4xl font-bold text-orange-600 mb-2">Hot Yoga Complete!</h1>
@@ -2644,19 +2598,7 @@ export default function BekahBuilder() {
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 pb-20 font-sans overflow-hidden">
-        <style>{styles}</style>
-        {confetti.map(c => (
-          <div
-            key={c.id}
-            className="confetti"
-            style={{
-              backgroundColor: c.color,
-              left: c.left,
-              animationDuration: c.animationDuration,
-              animationDelay: c.delay
-            }}
-          />
-        ))}
+        <ConfettiOverlay confetti={confetti} includeStyles />
 
         <div className="max-w-md mx-auto">
           <div className="flex justify-between items-center mb-4">
@@ -3632,13 +3574,7 @@ export default function BekahBuilder() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
         <div className="max-w-md mx-auto">
-          <button
-            onClick={() => setScreen('home')}
-            className="mb-4 text-pink-600 flex items-center gap-2"
-          >
-            <ArrowLeft size={20} />
-            <span>Back</span>
-          </button>
+          <BackButton onClick={() => setScreen('home')} className="mb-4" />
 
           <h2 className="text-2xl font-bold text-pink-600 mb-4">Data Management</h2>
 
@@ -3692,26 +3628,9 @@ export default function BekahBuilder() {
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 font-sans">
-        {confetti.map(c => (
-          <div
-            key={c.id}
-            className="confetti"
-            style={{
-              backgroundColor: c.color,
-              left: c.left,
-              animationDuration: c.animationDuration,
-              animationDelay: c.delay
-            }}
-          />
-        ))}
+        <ConfettiOverlay confetti={confetti} />
         <div className="max-w-md mx-auto">
-          <button
-            onClick={() => setScreen('home')}
-            className="mb-4 text-pink-600 flex items-center gap-2"
-          >
-            <ArrowLeft size={20} />
-            <span>Back</span>
-          </button>
+          <BackButton onClick={() => setScreen('home')} className="mb-4" />
 
           <div className="text-center mb-6">
             <Gift className="text-purple-400 mx-auto mb-2" size={48} />
@@ -3768,19 +3687,7 @@ export default function BekahBuilder() {
         {/* Reward Purchase Screen */}
         {showRewardPurchaseScreen && purchasedReward && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-auto">
-            <style>{styles}</style>
-            {confetti.map(c => (
-              <div
-                key={c.id}
-                className="confetti"
-                style={{
-                  backgroundColor: c.color,
-                  left: c.left,
-                  animationDuration: c.animationDuration,
-                  animationDelay: c.delay
-                }}
-              />
-            ))}
+            <ConfettiOverlay confetti={confetti} includeStyles />
             <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center my-auto">
               <div className="text-7xl mb-4 animate-bounce">🎉</div>
               <h3 className="text-2xl font-bold text-gray-800 mb-2">Reward Redeemed!</h3>
