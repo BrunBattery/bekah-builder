@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bekah-builder-v2.3.0';
+const CACHE_NAME = 'bekah-builder-v2.3.1';
 const BASE_PATH = '/bekah-builder/';
 
 const STATIC_ASSETS = [
