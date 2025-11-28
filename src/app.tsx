@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift, Flame, Moon, PencilLine } from 'lucide-react';
+import { Timer, Dumbbell, Calendar, Download, ArrowLeft, Check, Plus, Minus, ChevronDown, ChevronRight, List, ChevronLeft, Trash2, Upload, Save, RotateCcw, Info, Trophy, Gift, Flame, Moon, PencilLine, Scale } from 'lucide-react';
 
 // --- Types ---
 
@@ -227,6 +227,31 @@ const BackButton = ({ onClick, className = '' }: { onClick: () => void; classNam
     <span>Back</span>
   </button>
 );
+
+/** Modal overlay component for dialogs and confirmations */
+const Modal = ({
+  isOpen,
+  onClose,
+  children,
+  className = ''
+}: {
+  isOpen: boolean;
+  onClose?: () => void;
+  children: React.ReactNode;
+  className?: string;
+}) => {
+  if (!isOpen) return null;
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      onClick={onClose ? (e) => { if (e.target === e.currentTarget) onClose(); } : undefined}
+    >
+      <div className={`bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl ${className}`}>
+        {children}
+      </div>
+    </div>
+  );
+};
 
 // --- Main Component ---
 
@@ -1409,52 +1434,50 @@ export default function BekahBuilder() {
   
   // Log Past Day Menu - conditionally render as overlay on any screen
   const logPastDayMenuOverlay = showLogPastDayMenu && logTargetDate && (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-        <h3 className="text-xl font-bold text-gray-800 mb-2">Log Workout</h3>
-        <p className="text-sm text-gray-600 mb-4">
-          {logTargetDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-        </p>
-        <div className="space-y-2">
-          <button
-            onClick={() => {
-              confirmHotYoga(logTargetDate, true);
-            }}
-            className="w-full bg-orange-100 text-orange-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-200 flex items-center justify-center gap-2"
-          >
-            <Flame size={20} />
-            Hot Yoga
-          </button>
-          <button
-            onClick={() => {
-              confirmRestDay(logTargetDate, true);
-            }}
-            className="w-full bg-blue-100 text-blue-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-200 flex items-center justify-center gap-2"
-          >
-            <Moon size={20} />
-            Rest Day
-          </button>
-          <button
-            onClick={() => {
-              logCustomWorkoutForDate(logTargetDate, true);
-            }}
-            className="w-full bg-green-100 text-green-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-green-200 flex items-center justify-center gap-2"
-          >
-            <Dumbbell size={20} />
-            Custom Workout
-          </button>
-          <button
-            onClick={() => {
-              setShowLogPastDayMenu(false);
-              setLogTargetDate(null);
-            }}
-            className="w-full bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-          >
-            Cancel
-          </button>
-        </div>
+    <Modal isOpen={true} onClose={() => { setShowLogPastDayMenu(false); setLogTargetDate(null); }}>
+      <h3 className="text-xl font-bold text-gray-800 mb-4">Log Workout</h3>
+      <p className="text-sm text-gray-600 mb-4">
+        {logTargetDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+      </p>
+      <div className="space-y-2">
+        <button
+          onClick={() => {
+            confirmHotYoga(logTargetDate, true);
+          }}
+          className="w-full bg-orange-100 text-orange-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-200 flex items-center justify-center gap-2"
+        >
+          <Flame size={20} />
+          Hot Yoga
+        </button>
+        <button
+          onClick={() => {
+            confirmRestDay(logTargetDate, true);
+          }}
+          className="w-full bg-blue-100 text-blue-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-200 flex items-center justify-center gap-2"
+        >
+          <Moon size={20} />
+          Rest Day
+        </button>
+        <button
+          onClick={() => {
+            logCustomWorkoutForDate(logTargetDate, true);
+          }}
+          className="w-full bg-green-100 text-green-700 rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-green-200 flex items-center justify-center gap-2"
+        >
+          <Dumbbell size={20} />
+          Custom Workout
+        </button>
+        <button
+          onClick={() => {
+            setShowLogPastDayMenu(false);
+            setLogTargetDate(null);
+          }}
+          className="w-full bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+        >
+          Cancel
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 
   if (setupScreen && selectedWorkout) {
@@ -1670,7 +1693,7 @@ export default function BekahBuilder() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center overflow-hidden font-sans">
           <ConfettiOverlay confetti={confetti} includeStyles />
           <div className="max-w-md mx-auto text-center z-10 bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
-            <Flame className="mx-auto mb-4 animate-bounce text-orange-400" size={80} />
+            <Flame className="mx-auto mb-4 animate-bounce text-orange-400" size={48} />
             <h1 className="text-4xl font-bold text-orange-600 mb-2">Hot Yoga Complete!</h1>
             <p className="text-xl text-orange-500 mb-2">You're on fire! 🌟</p>
             <p className="text-sm text-gray-600 mb-8">Gold star added to your collection!</p>
@@ -1694,7 +1717,7 @@ export default function BekahBuilder() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
           <ConfettiOverlay confetti={confetti} includeStyles />
           <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
-            <Moon className="mx-auto mb-4 text-blue-400" size={80} />
+            <Moon className="mx-auto mb-4 text-blue-400" size={48} />
             <h1 className="text-4xl font-bold text-blue-600 mb-2">Rest Day Logged!</h1>
             <p className="text-xl text-blue-500 mb-2">Recovery is important too! 💙</p>
             <p className="text-sm text-gray-600 mb-8">Silver star added to your collection!</p>
@@ -1718,7 +1741,7 @@ export default function BekahBuilder() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
           <ConfettiOverlay confetti={confetti} includeStyles />
           <div className="max-w-md mx-auto text-center bg-white/80 backdrop-blur-sm p-8 rounded-3xl shadow-xl">
-            <Dumbbell className="mx-auto mb-4 text-green-400" size={80} />
+            <Dumbbell className="mx-auto mb-4 text-green-400" size={48} />
             <h1 className="text-4xl font-bold text-green-600 mb-2">Custom Workout Logged!</h1>
             <p className="text-xl text-green-500 mb-2">You crushed it! 💪</p>
             <p className="text-sm text-gray-600 mb-8">Gold star added to your collection!</p>
@@ -1878,148 +1901,132 @@ export default function BekahBuilder() {
           </div>
 
           <div className="text-center text-xs text-pink-300 font-medium mt-8">
-            <p>Copyright Steve from the CRA, 2025 • v2.3.1</p>
+            <p>Copyright Steve from the CRA, 2025 • v3.0.0</p>
           </div>
         </div>
 
         {/* Hot Yoga Dialog */}
-        {showHotYogaDialog && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
-              <Flame className="text-orange-400 mx-auto mb-4 animate-bounce" size={56} />
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Hot Yoga</h3>
-              <p className="text-gray-600 mb-2">Log a hot yoga session for today?</p>
-              <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowHotYogaDialog(false)}
-                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => confirmHotYoga()}
-                  className="flex-1 bg-orange-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-600"
-                >
-                  Yes!
-                </button>
-              </div>
-            </div>
+        <Modal isOpen={showHotYogaDialog} onClose={() => setShowHotYogaDialog(false)} className="text-center">
+          <Flame className="text-orange-400 mx-auto mb-4 animate-bounce" size={48} />
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Hot Yoga</h3>
+          <p className="text-gray-600 mb-2">Log a hot yoga session for today?</p>
+          <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowHotYogaDialog(false)}
+              className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => confirmHotYoga()}
+              className="flex-1 bg-orange-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-orange-600"
+            >
+              Yes!
+            </button>
           </div>
-        )}
+        </Modal>
 
         {/* Custom Workout Dialog */}
-        {showCustomDialog && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
-              <Dumbbell className="text-green-400 mx-auto mb-4" size={56} />
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Custom Workout</h3>
-              <p className="text-gray-600 mb-2">Log a custom workout for today?</p>
-              <p className="text-xs text-gray-500 mb-4">(this will overwrite any previous workout for today)</p>
-              <textarea
-                value={customText}
-                onChange={(e) => setCustomText(e.target.value)}
-                placeholder="e.g. RDLs - 135lbs - 3 sets of 10, 9, 8 reps"
-                className="w-full h-24 p-3 border-2 border-gray-200 rounded-lg focus:border-green-400 outline-none text-sm resize-none mb-4"
-              />
-              <div className="flex gap-3">
-                <button
-                  onClick={() => { setShowCustomDialog(false); setCustomText(''); }}
-                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={saveCustomWorkout}
-                  disabled={!customText.trim()}
-                  className="flex-1 bg-green-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600"
-                >
-                  Yes!
-                </button>
-              </div>
-            </div>
+        <Modal isOpen={showCustomDialog} onClose={() => { setShowCustomDialog(false); setCustomText(''); }} className="text-center">
+          <Dumbbell className="text-green-400 mx-auto mb-4" size={48} />
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Custom Workout</h3>
+          <p className="text-gray-600 mb-2">Log a custom workout for today?</p>
+          <p className="text-xs text-gray-500 mb-4">(this will overwrite any previous workout for today)</p>
+          <textarea
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            placeholder="e.g. RDLs - 135lbs - 3 sets of 10, 9, 8 reps"
+            className="w-full h-24 p-3 border-2 border-gray-200 rounded-lg focus:border-green-400 outline-none text-sm resize-none mb-4"
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={() => { setShowCustomDialog(false); setCustomText(''); }}
+              className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveCustomWorkout}
+              disabled={!customText.trim()}
+              className="flex-1 bg-green-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-600"
+            >
+              Yes!
+            </button>
           </div>
-        )}
+        </Modal>
 
         {/* Dev Menu */}
-        {showDevMenu && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Dev Menu (Shift+D)</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 block mb-1">Add Gold Stars</label>
-                  <input
-                    type="number"
-                    value={devAddGold}
-                    onChange={(e) => setDevAddGold(e.target.value)}
-                    className="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-pink-400 outline-none"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-semibold text-gray-700 block mb-1">Add Silver Stars</label>
-                  <input
-                    type="number"
-                    value={devAddSilver}
-                    onChange={(e) => setDevAddSilver(e.target.value)}
-                    className="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-pink-400 outline-none"
-                    placeholder="0"
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    setShowBackupReminder(true);
-                    setShowDevMenu(false);
-                  }}
-                  className="w-full bg-blue-100 text-blue-700 rounded-lg p-2 text-sm font-semibold active:scale-95 transition-all"
-                >
-                  Show Backup Reminder
-                </button>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowDevMenu(false)}
-                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={devAddStars}
-                    className="flex-1 bg-purple-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-purple-600"
-                  >
-                    Add Stars
-                  </button>
-                </div>
-              </div>
+        <Modal isOpen={showDevMenu} onClose={() => setShowDevMenu(false)}>
+          <h3 className="text-xl font-bold text-gray-800 mb-4">Dev Menu (Shift+D)</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-gray-700 block mb-1">Add Gold Stars</label>
+              <input
+                type="number"
+                value={devAddGold}
+                onChange={(e) => setDevAddGold(e.target.value)}
+                className="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-pink-400 outline-none"
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-gray-700 block mb-1">Add Silver Stars</label>
+              <input
+                type="number"
+                value={devAddSilver}
+                onChange={(e) => setDevAddSilver(e.target.value)}
+                className="w-full border-2 border-gray-200 rounded-lg p-2 focus:border-pink-400 outline-none"
+                placeholder="0"
+              />
+            </div>
+            <button
+              onClick={() => {
+                setShowBackupReminder(true);
+                setShowDevMenu(false);
+              }}
+              className="w-full bg-blue-100 text-blue-700 rounded-lg p-2 text-sm font-semibold active:scale-95 transition-all"
+            >
+              Show Backup Reminder
+            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDevMenu(false)}
+                className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={devAddStars}
+                className="flex-1 bg-purple-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-purple-600"
+              >
+                Add Stars
+              </button>
             </div>
           </div>
-        )}
+        </Modal>
 
         {/* Rest Day Confirmation Dialog */}
-        {showRestDayDialog && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center">
-              <Moon className="text-blue-400 mx-auto mb-4" size={56} />
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Rest Day</h3>
-              <p className="text-gray-600 mb-2">Log a rest day for today?</p>
-              <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowRestDayDialog(false)}
-                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => confirmRestDay()}
-                  className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
-                >
-                  Yes!
-                </button>
-              </div>
-            </div>
+        <Modal isOpen={showRestDayDialog} onClose={() => setShowRestDayDialog(false)} className="text-center">
+          <Moon className="text-blue-400 mx-auto mb-4" size={48} />
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Rest Day</h3>
+          <p className="text-gray-600 mb-2">Log a rest day for today?</p>
+          <p className="text-xs text-gray-500 mb-6">(this will overwrite any previous workout for today)</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowRestDayDialog(false)}
+              className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => confirmRestDay()}
+              className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
+            >
+              Yes!
+            </button>
           </div>
-        )}
+        </Modal>
 
         {/* Hot Yoga Complete Screen */}
         {showHotYogaComplete && (
@@ -2068,31 +2075,27 @@ export default function BekahBuilder() {
         )}
 
         {/* Backup Reminder Dialog */}
-        {showBackupReminder && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl">
-              <h3 className="text-2xl font-bold text-gray-800 mb-3">Great Progress! 🎉</h3>
-              <p className="text-gray-600 mb-6">You've completed {getCompletedWorkoutDays()} workouts! Would you like to back up your data to keep it safe?</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowBackupReminder(false)}
-                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                >
-                  Later
-                </button>
-                <button
-                  onClick={() => {
-                    setShowBackupReminder(false);
-                    setScreen('export');
-                  }}
-                  className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
-                >
-                  Back Up Now
-                </button>
-              </div>
-            </div>
+        <Modal isOpen={showBackupReminder} onClose={() => setShowBackupReminder(false)}>
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">Great Progress! 🎉</h3>
+          <p className="text-gray-600 mb-6">You've completed {getCompletedWorkoutDays()} workouts! Would you like to back up your data to keep it safe?</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowBackupReminder(false)}
+              className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+            >
+              Later
+            </button>
+            <button
+              onClick={() => {
+                setShowBackupReminder(false);
+                setScreen('export');
+              }}
+              className="flex-1 bg-blue-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all hover:bg-blue-600"
+            >
+              Back Up Now
+            </button>
           </div>
-        )}
+        </Modal>
 
         {/* Update Available Toast */}
         {showUpdateAvailable && (
@@ -2141,7 +2144,7 @@ export default function BekahBuilder() {
       return (
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
           <div className="max-w-md w-full">
-            <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
+            <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Exit Workout?</h2>
               <p className="text-gray-600 mb-6">Your active progress will be cleared.</p>
               <div className="flex gap-3">
@@ -2175,9 +2178,9 @@ export default function BekahBuilder() {
       return (
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
           <div className="max-w-md w-full">
-            <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
+            <div className="bg-white rounded-2xl p-6 shadow-lg text-center">
               <Timer className="text-pink-400 mx-auto mb-4" size={48} />
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Rest Time</h2>
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">Rest Time</h2>
               <p className="text-gray-600 mb-6">Suggested: {suggestedRestTime / 60} min</p>
 
               <div className="space-y-3">
@@ -2212,7 +2215,7 @@ export default function BekahBuilder() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-pink-100 to-rose-100 p-4 flex items-center justify-center font-sans">
           <style>{styles}</style>
           <div className="max-w-md w-full">
-            <div className="bg-white rounded-2xl p-8 shadow-lg text-center relative overflow-hidden">
+            <div className="bg-white rounded-2xl p-6 shadow-lg text-center relative overflow-hidden">
               <div
                 className="absolute bottom-0 left-0 h-2 bg-pink-500 transition-all duration-1000 ease-linear"
                 style={{ width: `${(timerSeconds / (suggestedRestTime || 120)) * 100}%` }}
@@ -2267,7 +2270,7 @@ export default function BekahBuilder() {
                 }}
                 className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 active:scale-95 transition-all"
               >
-                <RotateCcw size={18} />
+                <RotateCcw size={20} />
                 <span>Modify Workout</span>
               </button>
             </div>
@@ -2380,6 +2383,7 @@ export default function BekahBuilder() {
                   setPendingSwaps({});
                   setPendingSupersetChanges(new Set());
                   setShowSwapExercise(false);
+                  setShowProgressView(true);
                 }}
                 className="mb-4 text-pink-600 flex items-center gap-2"
               >
@@ -2613,7 +2617,7 @@ export default function BekahBuilder() {
               onClick={() => setShowProgressView(true)}
               className="text-pink-600 flex items-center gap-2 font-medium bg-white px-3 py-1.5 rounded-full shadow-sm"
             >
-              <List size={18} />
+              <List size={20} />
               <span>{currentExerciseIdx + 1}/{workout.exercises.length}</span>
             </button>
           </div>
@@ -2636,10 +2640,10 @@ export default function BekahBuilder() {
                               setShowNotesEditor(true);
                               setCurrentNoteExercise(exercise.isSuperset ? supersetPartnerName : exercise.name);
                             }}
-                            className="hover:bg-pink-100 p-1.5 rounded transition-colors"
+                            className="hover:bg-pink-100 p-2 rounded transition-colors"
                             title="Add notes"
                           >
-                            <PencilLine size={16} className="text-blue-600" />
+                            <PencilLine size={20} className="text-blue-600" />
                           </button>
                         )}
                       </div>
@@ -2657,10 +2661,10 @@ export default function BekahBuilder() {
                               setShowNotesEditor(true);
                               setCurrentNoteExercise(exercise.name);
                             }}
-                            className="hover:bg-pink-100 p-1.5 rounded transition-colors"
+                            className="hover:bg-pink-100 p-2 rounded transition-colors"
                             title="Add notes"
                           >
-                            <PencilLine size={16} className="text-blue-600" />
+                            <PencilLine size={20} className="text-blue-600" />
                           </button>
                         )}
                       </div>
@@ -2678,7 +2682,7 @@ export default function BekahBuilder() {
                     className="hover:bg-pink-100 p-2 rounded transition-colors mt-1"
                     title="Add notes"
                   >
-                    <PencilLine size={18} className="text-blue-600" />
+                    <PencilLine size={20} className="text-blue-600" />
                   </button>
                 </div>
               )}
@@ -2722,7 +2726,7 @@ export default function BekahBuilder() {
                 </div>
                 {exerciseNotes[exercise.name] && (
                   <div className="text-xs text-blue-700 mt-2 pt-2 border-t border-blue-100 flex items-center gap-2">
-                    <PencilLine size={14} className="text-blue-600 shrink-0" />
+                    <PencilLine size={16} className="text-blue-600 shrink-0" />
                     <span>{exerciseNotes[exercise.name]}</span>
                   </div>
                 )}
@@ -2798,10 +2802,10 @@ export default function BekahBuilder() {
                         setPlateMathWeightInput(startWeight.toString());
                         setShowPlateMath(true);
                       }}
-                      className="hover:bg-pink-100 p-1 rounded transition-colors mb-1"
+                      className="hover:bg-pink-100 p-2 rounded transition-colors mb-1"
                       title="Plate Calculator"
                     >
-                      <Dumbbell size={16} className="text-pink-500" />
+                      <Scale size={20} className="text-blue-600" />
                     </button>
                   )}
                   <div className={`flex flex-col items-center ${exercise.bodyweight ? 'w-full' : ''}`}>
@@ -2875,37 +2879,35 @@ export default function BekahBuilder() {
 
           {/* Notes Editor Modal */}
           {showNotesEditor && currentNoteExercise && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-                <h3 className="text-xl font-bold text-gray-800 mb-3">Notes for {currentNoteExercise}</h3>
-                <p className="text-xs text-gray-500 mb-3">Form cues, seat settings, feet placement or general notes</p>
-                <textarea
-                  value={exerciseNotes[currentNoteExercise] || ''}
-                  onChange={(e) => setExerciseNotes({ ...exerciseNotes, [currentNoteExercise]: e.target.value })}
-                  placeholder="Add your notes here..."
-                  className="w-full h-32 p-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 outline-none text-sm resize-none"
-                />
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => {
-                      setShowNotesEditor(false);
-                      setCurrentNoteExercise(null);
-                    }}
-                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                  >
-                    Done
-                  </button>
-                </div>
+            <Modal isOpen={true} onClose={() => { setShowNotesEditor(false); setCurrentNoteExercise(null); }}>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Notes for {currentNoteExercise}</h3>
+              <p className="text-xs text-gray-500 mb-3">Form cues, seat settings, feet placement or general notes</p>
+              <textarea
+                value={exerciseNotes[currentNoteExercise] || ''}
+                onChange={(e) => setExerciseNotes({ ...exerciseNotes, [currentNoteExercise]: e.target.value })}
+                placeholder="Add your notes here..."
+                className="w-full h-32 p-3 border-2 border-gray-200 rounded-lg focus:border-blue-400 outline-none text-sm resize-none"
+              />
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => {
+                    setShowNotesEditor(false);
+                    setCurrentNoteExercise(null);
+                  }}
+                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                >
+                  Done
+                </button>
               </div>
-            </div>
+            </Modal>
           )}
 
           {/* Plate Math Calculator Modal */}
           {showPlateMath && (
             <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl p-5 max-w-sm w-full shadow-xl">
+              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
                 <div className="flex items-center justify-center gap-2 mb-3">
-                  <Dumbbell className="text-pink-500" size={20} />
+                  <Scale className="text-pink-500" size={20} />
                   <h3 className="text-lg font-bold text-gray-800">Plate Calculator</h3>
                 </div>
 
@@ -3148,7 +3150,7 @@ export default function BekahBuilder() {
           </button>
 
           <div className="flex items-center gap-3 mb-4">
-            <Trophy className="text-yellow-400" size={32} />
+            <Trophy className="text-yellow-400" size={24} />
             <div>
               <h2 className="text-xl font-bold text-pink-600">Trophy Room</h2>
               <p className="text-pink-400 text-xs">Your personal bests! 🌟</p>
@@ -3318,7 +3320,7 @@ export default function BekahBuilder() {
                     onClick={() => setShowDeleteConfirm(true)}
                     className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={20} />
                   </button>
                   <button
                     onClick={() => setSelectedHistoryDate(null)}
@@ -3383,7 +3385,7 @@ export default function BekahBuilder() {
                         {/* show independent exercise note if present */}
                         {exerciseNotes[name] && (
                           <div className="text-xs text-gray-500 p-2 bg-blue-50 rounded mt-1 ml-2 mb-2 flex items-center gap-2">
-                            <PencilLine size={14} className="text-blue-600 shrink-0" />
+                            <PencilLine size={16} className="text-blue-600 shrink-0" />
                             <span>{exerciseNotes[name]}</span>
                           </div>
                         )}
@@ -3403,69 +3405,65 @@ export default function BekahBuilder() {
           )}
 
           {showDeleteConfirm && selectedHistoryDate && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-                <h3 className="text-xl font-bold text-gray-800 mb-3">Delete Workout?</h3>
-                <p className="text-gray-600 mb-6">This action cannot be undone.</p>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowDeleteConfirm(false)}
-                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => deleteWorkout(selectedHistoryDate)}
-                    className="flex-1 bg-red-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
-                  >
-                    Delete
-                  </button>
-                </div>
+            <Modal isOpen={true} onClose={() => setShowDeleteConfirm(false)}>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Delete Workout?</h3>
+              <p className="text-gray-600 mb-6">This action cannot be undone.</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => deleteWorkout(selectedHistoryDate)}
+                  className="flex-1 bg-red-500 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
+                >
+                  Delete
+                </button>
               </div>
-            </div>
+            </Modal>
           )}
 
           {showEditHistoryNote && editHistoryExercise && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
-                <h3 className="text-xl font-bold text-gray-800 mb-3">Edit notes for {editHistoryExercise}</h3>
-                <p className="text-xs text-gray-500 mb-3">This note applies to all workouts with this exercise.</p>
-                <textarea
-                  value={editHistoryNoteText}
-                  onChange={(e) => setEditHistoryNoteText(e.target.value)}
-                  placeholder="Add or edit notes..."
-                  className="w-full h-28 p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-400 outline-none text-sm resize-none"
-                />
-                <div className="flex gap-3 mt-4">
-                  <button
-                    onClick={() => {
-                      setShowEditHistoryNote(false);
-                      setEditHistoryExercise(null);
-                      setEditHistoryNoteText('');
-                    }}
-                    className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!editHistoryExercise) return;
-                      // save to independent exerciseNotes (applies to all workouts with this exercise)
-                      setExerciseNotes(prev => ({
-                        ...prev,
-                        [editHistoryExercise]: editHistoryNoteText
-                      }));
-                      setShowEditHistoryNote(false);
-                      setEditHistoryExercise(null);
-                      setEditHistoryNoteText('');
-                    }}
-                    className="flex-1 bg-indigo-600 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
-                  >
-                    Save
-                  </button>
-                </div>
+            <Modal isOpen={true} onClose={() => { setShowEditHistoryNote(false); setEditHistoryExercise(null); setEditHistoryNoteText(''); }}>
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Edit notes for {editHistoryExercise}</h3>
+              <p className="text-xs text-gray-500 mb-3">This note applies to all workouts with this exercise.</p>
+              <textarea
+                value={editHistoryNoteText}
+                onChange={(e) => setEditHistoryNoteText(e.target.value)}
+                placeholder="Add or edit notes..."
+                className="w-full h-28 p-3 border-2 border-gray-200 rounded-lg focus:border-indigo-400 outline-none text-sm resize-none"
+              />
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => {
+                    setShowEditHistoryNote(false);
+                    setEditHistoryExercise(null);
+                    setEditHistoryNoteText('');
+                  }}
+                  className="flex-1 bg-gray-200 rounded-xl p-3 text-gray-700 font-semibold active:scale-95 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!editHistoryExercise) return;
+                    // save to independent exerciseNotes (applies to all workouts with this exercise)
+                    setExerciseNotes(prev => ({
+                      ...prev,
+                      [editHistoryExercise]: editHistoryNoteText
+                    }));
+                    setShowEditHistoryNote(false);
+                    setEditHistoryExercise(null);
+                    setEditHistoryNoteText('');
+                  }}
+                  className="flex-1 bg-indigo-600 text-white rounded-xl p-3 font-semibold active:scale-95 transition-all"
+                >
+                  Save
+                </button>
               </div>
-            </div>
+            </Modal>
           )}
         </div>
         {logPastDayMenuOverlay}
@@ -3688,7 +3686,7 @@ export default function BekahBuilder() {
         {showRewardPurchaseScreen && purchasedReward && (
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-auto">
             <ConfettiOverlay confetti={confetti} includeStyles />
-            <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-xl text-center my-auto">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl text-center my-auto">
               <div className="text-7xl mb-4 animate-bounce">🎉</div>
               <h3 className="text-2xl font-bold text-gray-800 mb-2">Reward Redeemed!</h3>
               <p className="text-3xl mb-4">{purchasedReward.name}</p>
