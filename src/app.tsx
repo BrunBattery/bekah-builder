@@ -12,6 +12,7 @@ interface ExerciseDef {
   superset?: string; // Name of the exercise paired with
   isSuperset?: boolean; // True if this is the SECOND part of a superset
   stopwatch?: boolean; // true for exercises measured by duration (e.g., Dead Hangs)
+  note?: string; // Optional note/tip for the exercise
 }
 
 interface WorkoutDef {
